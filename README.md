@@ -219,5 +219,16 @@ the CSV export with your accountant.
 
 - Authentication UI (Supabase Auth is wired; sign-in screen is a follow-up).
 - Server-side document storage upload (paths are modelled; bucket is created).
-- Split-transaction editor UI (`transaction_splits` is modelled end-to-end).
-- Code-splitting to trim the initial bundle (currently single chunk).
+
+### Recently added
+
+- **Split-transaction editor** — allocate one transaction across multiple
+  categories, work streams and business-use percentages with a live balance
+  check (`transaction_splits`, full CRUD). Available from the row actions on the
+  Transactions screen; split rows are badged in the ledger.
+- **Transfer linking** — pair a transaction with its matching counterpart on
+  another account (sets `transfer_group_id`, `kind = transfer`, reconciliation
+  matched) so internal movements aren't double-counted in cashflow.
+- **Route-level code-splitting** — every screen is lazy-loaded and vendor
+  chunks (`react`, `recharts`, `supabase`) are split out, keeping the initial
+  bundle lean.
