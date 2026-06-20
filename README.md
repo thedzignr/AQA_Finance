@@ -17,7 +17,14 @@ needs one unified ledger that doubles as tax-ready record keeping for **2025/26*
 - **Personal / business / mixed** classification on every transaction, with
   business-use % apportionment for mixed-use costs.
 - **Work-stream tagging** (PHV, trade plate, design, freelance, other) with
-  income, expense and net-profit reporting per stream.
+  income, expense and net-profit reporting per stream. Streams can be
+  **wage-only** (e.g. trade plate driving paid as a wage with all running costs
+  on the operator's company card) — these record income only and are flagged
+  "expenses covered by operator" in reporting.
+- **Weekly operator statement upload** straight from the dashboard: drop your
+  PHV (Uber/Bolt) weekly PDF and it auto-posts gross fares as income and the
+  platform fee as an allowable expense, tagged tax-relevant and linked to the
+  statement (low-confidence parses go to the review queue instead).
 - **Document ingestion** for receipts, invoices, weekly operator/PHV statements,
   bank statements, screenshots, CSVs and PDFs — auto-classified, parsed and
   confidence-scored.

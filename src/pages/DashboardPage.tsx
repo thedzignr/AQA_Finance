@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/shared/StatCard";
 import { Money } from "@/components/shared/Money";
 import { TransactionDialog } from "@/components/transactions/TransactionDialog";
+import { WeeklyStatementUpload } from "@/components/dashboard/WeeklyStatementUpload";
 import { useData } from "@/data/DataProvider";
 import {
   dashboardSummary,
@@ -145,7 +146,10 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {/* PHV weekly statement quick upload */}
+        <WeeklyStatementUpload />
+
         {/* Upcoming bills */}
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">

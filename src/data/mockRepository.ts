@@ -2,7 +2,7 @@ import { type CollectionMap, type CollectionName, type Dataset } from "./dataset
 import type { Repository } from "./repository";
 import { buildSeedDataset } from "./seed";
 
-const STORAGE_KEY = "aqa_finance_dataset_v1";
+const STORAGE_KEY = "aqa_finance_dataset_v2";
 
 /**
  * In-memory + localStorage repository. This is the default backend and lets the

@@ -116,20 +116,22 @@ export function buildSeedDataset(): Dataset {
 
   // Work streams ----------------------------------------------------------
   const ws: Record<WorkStreamCode, WorkStream> = {} as Record<WorkStreamCode, WorkStream>;
-  const wsDefs: Array<[WorkStreamCode, string]> = [
-    ["phv", "PHV / Private Hire"],
-    ["trade_plate", "Trade Plate Driving"],
-    ["design", "Design Work"],
-    ["freelance", "Freelance"],
-    ["other", "Other Income"],
+  const wsDefs: Array<[WorkStreamCode, string, boolean, string | null]> = [
+    ["phv", "PHV / Private Hire", true, "Self-employed via operator. Upload weekly operator statements as evidence."],
+    ["trade_plate", "Trade Plate Driving", false, "Paid a wage; all running costs are on the operator's company card, so no expenses are tracked here."],
+    ["design", "Design Work", true, null],
+    ["freelance", "Freelance", true, null],
+    ["other", "Other Income", true, null],
   ];
-  ds.workStreams = wsDefs.map(([code, name]) => {
+  ds.workStreams = wsDefs.map(([code, name, tracks_expenses, notes]) => {
     const row: WorkStream = {
       id: `ws_${code}`,
       user_id: u,
       code,
       name,
       active: true,
+      tracks_expenses,
+      notes,
       created_at: iso(400),
     };
     ws[code] = row;
@@ -202,7 +204,7 @@ export function buildSeedDataset(): Dataset {
     doc("doc_fuel", "shell-fuel-receipt.jpg", "image/jpeg", "receipt", "completed", 0.94, "approved", 5, ws.phv.id),
     doc("doc_phv_week", "uber-weekly-statement.pdf", "application/pdf", "weekly_statement", "completed", 0.97, "approved", 7, ws.phv.id),
     doc("doc_bankcsv", "monzo-statement-jan.csv", "text/csv", "bank_statement", "completed", 0.99, "approved", 3),
-    doc("doc_parking", "ncp-parking.png", "image/png", "receipt", "needs_review", 0.58, "needs_review", 2, ws.trade_plate.id),
+    doc("doc_parking", "ncp-parking.png", "image/png", "receipt", "needs_review", 0.58, "needs_review", 2, ws.phv.id),
     doc("doc_invoice", "design-invoice-0042.pdf", "application/pdf", "invoice_sent", "completed", 0.91, "approved", 12, ws.design.id),
     doc("doc_dup", "shell-fuel-receipt-copy.jpg", "image/jpeg", "receipt", "needs_review", 0.93, "needs_review", 1, ws.phv.id),
   ];
@@ -239,7 +241,7 @@ export function buildSeedDataset(): Dataset {
       date: daysAgo(2),
       total: 14.5,
       currency: "GBP",
-      work_stream_hint: "trade_plate",
+      work_stream_hint: "phv",
       suggested_category_code: "exp_parking",
       direction_hint: "outflow",
       confidence_breakdown: { supplier: 0.62, total: 0.51, date: 0.6 },
@@ -290,13 +292,13 @@ export function buildSeedDataset(): Dataset {
     tx({ id: "t_fuel2", transaction_date: daysAgo(12), description: "BP fuel", counterparty: "BP", amount: 58.1, direction: "outflow", kind: "expense", account_id: "acc_business", work_stream_id: ws.phv.id, category_id: cid("exp_fuel"), ownership_type: "business", tax_relevant: true }),
     tx({ id: "t_platform", transaction_date: daysAgo(7), description: "Uber service fee", counterparty: "Uber BV", amount: 210.54, direction: "outflow", kind: "expense", account_id: "acc_business", work_stream_id: ws.phv.id, category_id: cid("exp_platform_fee"), ownership_type: "business", tax_relevant: true }),
     tx({ id: "t_carwash", transaction_date: daysAgo(9), description: "Car wash", counterparty: "Shine Hand Wash", amount: 12.0, direction: "outflow", kind: "expense", account_id: "acc_cash", work_stream_id: ws.phv.id, category_id: cid("exp_cleaning"), ownership_type: "business", tax_relevant: true, review_status: "needs_review" }),
+    tx({ id: "t_phv_parking", transaction_date: daysAgo(2), description: "NCP parking", counterparty: "NCP", amount: 14.5, direction: "outflow", kind: "expense", account_id: "acc_personal", work_stream_id: ws.phv.id, category_id: cid("exp_parking"), ownership_type: "business", tax_relevant: true, linked_document_id: "doc_parking", review_status: "needs_review" }),
   );
 
-  // Trade plate work
+  // Trade plate work — wage only (operator covers all running costs)
   txns.push(
-    tx({ id: "t_tp1", transaction_date: daysAgo(10), description: "Trade plate delivery — Movex", counterparty: "Movex", amount: 320.0, direction: "inflow", kind: "income", account_id: "acc_business", work_stream_id: ws.trade_plate.id, category_id: cid("inc_trade_plate"), ownership_type: "business", tax_relevant: true }),
-    tx({ id: "t_tp2", transaction_date: daysAgo(2), description: "NCP parking", counterparty: "NCP", amount: 14.5, direction: "outflow", kind: "expense", account_id: "acc_personal", work_stream_id: ws.trade_plate.id, category_id: cid("exp_parking"), ownership_type: "business", tax_relevant: true, linked_document_id: "doc_parking", review_status: "needs_review" }),
-    tx({ id: "t_tp3", transaction_date: daysAgo(11), description: "Train fare (return collection)", counterparty: "Trainline", amount: 28.7, direction: "outflow", kind: "expense", account_id: "acc_personal", work_stream_id: ws.trade_plate.id, category_id: cid("exp_travel"), ownership_type: "business", tax_relevant: true }),
+    tx({ id: "t_tp1", transaction_date: daysAgo(10), description: "Trade plate weekly wage — Movex", counterparty: "Movex", amount: 620.0, direction: "inflow", kind: "income", account_id: "acc_personal", work_stream_id: ws.trade_plate.id, category_id: cid("inc_trade_plate"), ownership_type: "business" }),
+    tx({ id: "t_tp4", transaction_date: daysAgo(17), description: "Trade plate weekly wage — Movex", counterparty: "Movex", amount: 585.0, direction: "inflow", kind: "income", account_id: "acc_personal", work_stream_id: ws.trade_plate.id, category_id: cid("inc_trade_plate"), ownership_type: "business" }),
   );
 
   // Design work
@@ -580,11 +582,11 @@ export function buildSeedDataset(): Dataset {
     completed_at: null,
   });
   ds.reviewTasks = [
-    task("rt_parking", "low_confidence_match", "high", "doc_parking", "t_tp2", {
+    task("rt_parking", "low_confidence_match", "high", "doc_parking", "t_phv_parking", {
       summary: "Low-confidence OCR on NCP parking receipt (58%). Verify amount & date.",
-      suggested_action: "Confirm £14.50 on " + daysAgo(2) + " as Parking (Trade Plate, business).",
-      suggestion: { document_type: "receipt", supplier: "NCP", date: daysAgo(2), total: 14.5, suggested_category_code: "exp_parking", work_stream_hint: "trade_plate" },
-      candidate_transaction_ids: ["t_tp2"],
+      suggested_action: "Confirm £14.50 on " + daysAgo(2) + " as Parking (PHV, business).",
+      suggestion: { document_type: "receipt", supplier: "NCP", date: daysAgo(2), total: 14.5, suggested_category_code: "exp_parking", work_stream_hint: "phv" },
+      candidate_transaction_ids: ["t_phv_parking"],
       amount: 14.5,
     }),
     task("rt_dup", "duplicate_upload", "medium", "doc_dup", null, {

@@ -136,6 +136,12 @@ export interface WorkStream {
   code: WorkStreamCode;
   name: string;
   active: boolean;
+  /**
+   * Whether the user records expenses against this stream. Wage-only streams
+   * (e.g. trade plate driving on the operator's company card) set this false.
+   */
+  tracks_expenses: boolean;
+  notes: string | null;
   created_at: string;
 }
 

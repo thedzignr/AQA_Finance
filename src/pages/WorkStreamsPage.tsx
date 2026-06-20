@@ -50,7 +50,10 @@ export function WorkStreamsPage() {
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ background: COLORS[i % COLORS.length] }}
                 />
-                <Badge variant="muted">{s.transactionCount}</Badge>
+                <div className="flex items-center gap-1.5">
+                  {!s.workStream.tracks_expenses && <Badge variant="secondary">Wage</Badge>}
+                  <Badge variant="muted">{s.transactionCount}</Badge>
+                </div>
               </div>
               <p className="mt-2 text-sm font-medium">{s.workStream.name}</p>
               <p className="mt-1 text-xl font-semibold tnum">
@@ -58,8 +61,17 @@ export function WorkStreamsPage() {
               </p>
               <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
                 <div className="flex justify-between"><span>Income</span><span>{formatGBP(s.income)}</span></div>
-                <div className="flex justify-between"><span>Expenses</span><span>{formatGBP(s.expenses)}</span></div>
+                {s.workStream.tracks_expenses ? (
+                  <div className="flex justify-between"><span>Expenses</span><span>{formatGBP(s.expenses)}</span></div>
+                ) : (
+                  <div className="flex justify-between"><span>Expenses</span><span>Covered by operator</span></div>
+                )}
               </div>
+              {s.workStream.notes && (
+                <p className="mt-2 border-t pt-2 text-[11px] leading-snug text-muted-foreground">
+                  {s.workStream.notes}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
