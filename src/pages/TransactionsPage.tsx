@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Pencil,
+  Plus,
+  Search,
+  SplitSquareHorizontal,
+  Tags,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +41,8 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Money } from "@/components/shared/Money";
 import { OwnershipBadge } from "@/components/shared/StatusBadges";
 import { TransactionDialog } from "@/components/transactions/TransactionDialog";
+import { SplitDialog } from "@/components/transactions/SplitDialog";
+import { TransferLinkDialog } from "@/components/transactions/TransferLinkDialog";
 import { useData } from "@/data/DataProvider";
 import type { OwnershipType, Transaction } from "@/types/domain";
 import { formatGBP } from "@/lib/utils";
@@ -52,6 +63,16 @@ export function TransactionsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [splitTarget, setSplitTarget] = useState<Transaction | null>(null);
+  const [transferTarget, setTransferTarget] = useState<Transaction | null>(null);
+
+  const splitCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of data.transactionSplits) {
+      map.set(s.transaction_id, (map.get(s.transaction_id) ?? 0) + 1);
+    }
+    return map;
+  }, [data.transactionSplits]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -322,6 +343,14 @@ export function TransactionsPage() {
                       {t.linked_document_id && (
                         <Badge variant="muted" className="h-5">Doc</Badge>
                       )}
+                      {splitCounts.has(t.id) && (
+                        <Badge variant="secondary" className="h-5">
+                          Split ×{splitCounts.get(t.id)}
+                        </Badge>
+                      )}
+                      {t.transfer_group_id && (
+                        <Badge variant="muted" className="h-5">Transfer</Badge>
+                      )}
                     </div>
                     {t.counterparty && (
                       <p className="text-xs text-muted-foreground">{t.counterparty}</p>
@@ -358,6 +387,13 @@ export function TransactionsPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSplitTarget(t)}>
+                          <SplitSquareHorizontal className="h-3.5 w-3.5" /> Split…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTransferTarget(t)}>
+                          <ArrowLeftRight className="h-3.5 w-3.5" /> Link as transfer…
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => void remove("transactions", t.id)}
@@ -385,6 +421,16 @@ export function TransactionsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         transaction={editing}
+      />
+      <SplitDialog
+        open={Boolean(splitTarget)}
+        onOpenChange={(o) => !o && setSplitTarget(null)}
+        transaction={splitTarget}
+      />
+      <TransferLinkDialog
+        open={Boolean(transferTarget)}
+        onOpenChange={(o) => !o && setTransferTarget(null)}
+        transaction={transferTarget}
       />
     </div>
   );

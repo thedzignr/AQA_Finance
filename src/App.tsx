@@ -1,18 +1,52 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useData } from "@/data/DataProvider";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { AccountsPage } from "@/pages/AccountsPage";
-import { AccountDetailPage } from "@/pages/AccountDetailPage";
-import { TransactionsPage } from "@/pages/TransactionsPage";
-import { WorkStreamsPage } from "@/pages/WorkStreamsPage";
-import { DocumentsPage } from "@/pages/DocumentsPage";
-import { ReviewQueuePage } from "@/pages/ReviewQueuePage";
-import { BillsPage } from "@/pages/BillsPage";
-import { DebtsPage } from "@/pages/DebtsPage";
-import { BudgetPage } from "@/pages/BudgetPage";
-import { TaxPage } from "@/pages/TaxPage";
+
+// Route-level code-splitting keeps the initial bundle lean; each screen and its
+// charts load on demand.
+const DashboardPage = lazy(() =>
+  import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const AccountsPage = lazy(() =>
+  import("@/pages/AccountsPage").then((m) => ({ default: m.AccountsPage })),
+);
+const AccountDetailPage = lazy(() =>
+  import("@/pages/AccountDetailPage").then((m) => ({ default: m.AccountDetailPage })),
+);
+const TransactionsPage = lazy(() =>
+  import("@/pages/TransactionsPage").then((m) => ({ default: m.TransactionsPage })),
+);
+const WorkStreamsPage = lazy(() =>
+  import("@/pages/WorkStreamsPage").then((m) => ({ default: m.WorkStreamsPage })),
+);
+const DocumentsPage = lazy(() =>
+  import("@/pages/DocumentsPage").then((m) => ({ default: m.DocumentsPage })),
+);
+const ReviewQueuePage = lazy(() =>
+  import("@/pages/ReviewQueuePage").then((m) => ({ default: m.ReviewQueuePage })),
+);
+const BillsPage = lazy(() =>
+  import("@/pages/BillsPage").then((m) => ({ default: m.BillsPage })),
+);
+const DebtsPage = lazy(() =>
+  import("@/pages/DebtsPage").then((m) => ({ default: m.DebtsPage })),
+);
+const BudgetPage = lazy(() =>
+  import("@/pages/BudgetPage").then((m) => ({ default: m.BudgetPage })),
+);
+const TaxPage = lazy(() =>
+  import("@/pages/TaxPage").then((m) => ({ default: m.TaxPage })),
+);
+
+function PageFallback() {
+  return (
+    <div className="flex h-64 items-center justify-center text-muted-foreground">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    </div>
+  );
+}
 
 export function App() {
   const { loading, error, data } = useData();
@@ -36,6 +70,7 @@ export function App() {
   }
 
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
@@ -52,5 +87,6 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }
