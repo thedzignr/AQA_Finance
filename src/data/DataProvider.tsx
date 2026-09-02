@@ -7,24 +7,24 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { dataBackend } from "@/lib/supabase";
+import { ensureOnboarded } from "@/lib/onboard";
 import type {
   Account,
+  Client,
   TransactionCategory,
   WorkStream,
 } from "@/types/domain";
 import { type CollectionMap, type CollectionName, type Dataset, emptyDataset } from "./dataset";
-import { MockRepository } from "./mockRepository";
+import { useAuth } from "./auth";
 import type { Repository } from "./repository";
 import { SupabaseRepository } from "./supabaseRepository";
 
 interface DataContextValue {
-  backend: "mock" | "supabase";
+  backend: "supabase";
   loading: boolean;
   error: string | null;
   data: Dataset;
   refresh: () => Promise<void>;
-  reset: () => Promise<void>;
   insert: <K extends CollectionName>(
     name: K,
     row: CollectionMap[K],
@@ -40,24 +40,28 @@ interface DataContextValue {
   categoryById: (id: string | null | undefined) => TransactionCategory | undefined;
   categoryByCode: (code: string | null | undefined) => TransactionCategory | undefined;
   workStreamById: (id: string | null | undefined) => WorkStream | undefined;
+  clientById: (id: string | null | undefined) => Client | undefined;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
 
-function createRepository(): Repository {
-  return dataBackend === "supabase" ? new SupabaseRepository() : new MockRepository();
-}
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [repo] = useState<Repository>(() => createRepository());
+  const { userId, email, fullName } = useAuth();
+  const [repo] = useState<Repository>(() => new SupabaseRepository());
   const [data, setData] = useState<Dataset>(emptyDataset);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!userId) {
+      setData(emptyDataset());
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      await ensureOnboarded(userId, email, fullName);
       const loaded = await repo.loadAll();
       setData(loaded);
     } catch (e) {
@@ -65,7 +69,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [repo]);
+  }, [repo, userId, email, fullName]);
 
   useEffect(() => {
     void refresh();
@@ -107,15 +111,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [repo],
   );
 
-  const reset = useCallback(async () => {
-    if (repo.reset) {
-      const fresh = await repo.reset();
-      setData(fresh);
-    } else {
-      await refresh();
-    }
-  }, [repo, refresh]);
-
   const accountIndex = useMemo(
     () => new Map(data.accounts.map((a) => [a.id, a])),
     [data.accounts],
@@ -132,14 +127,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => new Map(data.workStreams.map((w) => [w.id, w])),
     [data.workStreams],
   );
+  const clientIndex = useMemo(
+    () => new Map((data.clients ?? []).map((c) => [c.id, c])),
+    [data.clients],
+  );
 
   const value: DataContextValue = {
-    backend: repo.backend,
+    backend: "supabase",
     loading,
     error,
     data,
     refresh,
-    reset,
     insert,
     update,
     remove,
@@ -147,6 +145,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     categoryById: (id) => (id ? categoryIndex.get(id) : undefined),
     categoryByCode: (code) => (code ? categoryCodeIndex.get(code) : undefined),
     workStreamById: (id) => (id ? workStreamIndex.get(id) : undefined),
+    clientById: (id) => (id ? clientIndex.get(id) : undefined),
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

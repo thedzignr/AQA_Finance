@@ -5,8 +5,12 @@ import type {
   ReconciliationStatus,
   ReviewStatus,
   Priority,
+  InvoiceStatus,
+  QuoteStatus,
+  DocumentSourceType,
 } from "@/types/domain";
 import { titleCase } from "@/lib/utils";
+import type { InvoiceDisplayStatus } from "@/lib/commerce";
 
 export function OwnershipBadge({ value }: { value: OwnershipType }) {
   const variant =
@@ -43,6 +47,11 @@ export function ReconciliationBadge({ value }: { value: ReconciliationStatus }) 
   return <Badge variant={variant}>{titleCase(value)}</Badge>;
 }
 
+export function SourceBadge({ value }: { value: DocumentSourceType }) {
+  if (value === "upload") return null;
+  return <Badge variant="default">{value === "email" ? "Email" : titleCase(value)}</Badge>;
+}
+
 export function ProcessingBadge({ value }: { value: ProcessingStatus }) {
   const variant =
     value === "completed"
@@ -66,4 +75,28 @@ export function ConfidenceBadge({ value }: { value: number | null | undefined })
   const pct = Math.round(value * 100);
   const variant = pct >= 85 ? "success" : pct >= 70 ? "warning" : "destructive";
   return <Badge variant={variant}>{pct}% conf.</Badge>;
+}
+
+export function QuoteStatusBadge({ value }: { value: QuoteStatus }) {
+  const variant =
+    value === "accepted" || value === "converted"
+      ? "success"
+      : value === "declined" || value === "expired"
+        ? "destructive"
+        : value === "sent"
+          ? "default"
+          : "muted";
+  return <Badge variant={variant}>{titleCase(value)}</Badge>;
+}
+
+export function InvoiceStatusBadge({ value }: { value: InvoiceDisplayStatus | InvoiceStatus }) {
+  const variant =
+    value === "paid"
+      ? "success"
+      : value === "overdue" || value === "void"
+        ? "destructive"
+        : value === "sent" || value === "part_paid"
+          ? "warning"
+          : "muted";
+  return <Badge variant={variant}>{titleCase(value)}</Badge>;
 }

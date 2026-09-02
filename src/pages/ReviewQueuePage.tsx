@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ClipboardCheck,
   Check,
   CheckCheck,
   FileText,
@@ -20,7 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { PriorityBadge } from "@/components/shared/StatusBadges";
+import { PriorityBadge, SourceBadge } from "@/components/shared/StatusBadges";
+import { inboundMailbox } from "@/lib/inboundMailbox";
 import { Money } from "@/components/shared/Money";
 import { TransactionDialog } from "@/components/transactions/TransactionDialog";
 import { useData } from "@/data/DataProvider";
@@ -135,6 +137,7 @@ export function ReviewQueuePage() {
     <div className="space-y-5">
       <PageHeader
         title="Review Queue"
+        icon={ClipboardCheck}
         description="Approve uncertain OCR/parsing results, resolve duplicates, link evidence and clear anomalies."
         actions={
           <Badge variant="muted" className="hidden sm:flex">
@@ -147,19 +150,25 @@ export function ReviewQueuePage() {
         <EmptyState
           icon={CheckCheck}
           title="Inbox zero"
-          description="No items need review right now. Upload documents or import statements to generate new tasks."
+          description={
+            inboundMailbox()
+              ? `No items need review. Receipts sent to ${inboundMailbox()} will show up here.`
+              : "No items need review right now. Upload documents or import statements to generate new tasks."
+          }
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-          {/* Task list */}
-          <div className="space-y-2">
+          {/* Task list — chips on phone so the current item is on screen first */}
+          <div className="order-2 flex gap-2 overflow-x-auto pb-1 scrollbar-thin lg:order-1 lg:flex-col lg:overflow-visible">
             {openTasks.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setActiveId(t.id)}
                 className={cn(
-                  "w-full rounded-lg border p-3 text-left transition-colors",
-                  active?.id === t.id ? "border-primary bg-primary/5" : "hover:bg-accent/40",
+                  "min-w-[220px] shrink-0 rounded-2xl border p-3 text-left transition-colors lg:min-w-0 lg:w-full",
+                  active?.id === t.id
+                    ? "border-primary bg-primary/10 shadow-neon"
+                    : "hover:bg-accent/40",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -173,7 +182,7 @@ export function ReviewQueuePage() {
 
           {/* Detail */}
           {active && (
-            <Card>
+            <Card className="order-1 shadow-neon lg:order-2">
               <CardContent className="space-y-5 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -203,8 +212,9 @@ export function ReviewQueuePage() {
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">{doc.file_name}</span>
+                          <SourceBadge value={doc.source_type} />
                         </div>
-                        <pre className="max-h-56 overflow-auto rounded bg-muted p-2 text-xs scrollbar-thin">
+                        <pre className="max-h-32 overflow-auto rounded bg-muted p-2 text-xs scrollbar-thin sm:max-h-56">
                           {extraction?.raw_text ?? "No extracted text."}
                         </pre>
                       </div>
@@ -261,8 +271,8 @@ export function ReviewQueuePage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap gap-2 border-t pt-4">
-                  <Button onClick={() => void complete(active, "done")}>
+                <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-5 flex flex-wrap gap-2 border-t bg-card/95 px-5 py-3 backdrop-blur-md lg:static lg:bottom-auto lg:mx-0 lg:px-0">
+                  <Button className="h-11 flex-1 sm:flex-none" onClick={() => void complete(active, "done")}>
                     <Check className="h-4 w-4" /> Approve
                   </Button>
                   {active.payload_json.suggestion && (

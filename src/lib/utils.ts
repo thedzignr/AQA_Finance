@@ -36,6 +36,12 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Whole days from `from` until an ISO date (negative if already past). */
+export function daysUntil(iso: string, from: string = todayISO()): number {
+  const ms = new Date(iso + "T00:00:00").getTime() - new Date(from + "T00:00:00").getTime();
+  return Math.round(ms / 86_400_000);
+}
+
 export function monthKey(date: string | Date = new Date()): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -66,4 +72,42 @@ export function titleCase(input: string): string {
   return input
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** UUID for Postgres primary keys. */
+export function newId(): string {
+  return crypto.randomUUID();
+}
+
+export function roundMoney(n: number): number {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+export function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Monday of the ISO week containing `from`. */
+export function startOfWeekISO(from: string = todayISO()): string {
+  const d = new Date(from + "T00:00:00");
+  const day = d.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+export function weekDatesISO(from: string = todayISO()): string[] {
+  const start = startOfWeekISO(from);
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(start, i));
+}
+
+export function formatShortDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }

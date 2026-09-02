@@ -317,7 +317,7 @@ create table transactions (
   business_use_pct numeric(5, 2) not null default 100
     check (business_use_pct between 0 and 100),
   tax_relevant boolean not null default false,
-  recurring_rule_id uuid references rules (id) on delete set null,
+  recurring_rule_id uuid, -- FK added after `rules` is created (see below)
   linked_document_id uuid references documents (id) on delete set null,
   linked_bill_id uuid references bills (id) on delete set null,
   linked_debt_id uuid references debts (id) on delete set null,

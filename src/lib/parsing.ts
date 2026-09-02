@@ -4,7 +4,7 @@ import type {
   ExtractionRawJson,
   NormalizedExtraction,
   WorkStreamCode,
-} from "@/types/domain";
+} from "../types/domain";
 import { todayISO } from "./utils";
 
 export const EXTRACTOR_VERSION = "aqa-mock-extractor@1.3.0";
@@ -13,8 +13,12 @@ export interface ParseInput {
   fileName: string;
   mimeType: string;
   size: number;
-  /** Decoded text for CSV / text-PDF inputs. */
+  /** Decoded text for CSV / text-PDF / email-body inputs. */
   textContent?: string;
+  /** Inbound email subject — used for type hints. */
+  subject?: string;
+  /** Inbound email sender. */
+  from?: string;
 }
 
 export interface ParseResult {
@@ -34,13 +38,20 @@ const REVIEW_THRESHOLD = 0.7;
 // Document type auto-detection
 // ----------------------------------------------------------------------------
 export function detectDocumentType(input: ParseInput): DocumentType {
-  const name = input.fileName.toLowerCase();
+  const name = `${input.fileName} ${input.subject ?? ""}`.toLowerCase();
   const mime = input.mimeType.toLowerCase();
-  if (mime.includes("csv") || name.endsWith(".csv")) return "bank_statement";
+  if (mime.includes("csv") || name.includes(".csv")) return "bank_statement";
   if (/(uber|bolt|operator|weekly|payout)/.test(name)) return "weekly_statement";
   if (/invoice/.test(name)) return name.includes("sent") ? "invoice_sent" : "invoice_received";
   if (/statement/.test(name)) return "bank_statement";
   if (/mileage/.test(name)) return "mileage_log";
+  if (
+    /(ncp|parking|barrier|ringgo|justpark|paybyphone|parkopedia|apcoa|appy.?park|pay.?and.?display|ulez|congestion.?charge)/.test(
+      name,
+    )
+  ) {
+    return "receipt";
+  }
   if (/(screenshot|screen|img_)/.test(name)) return "screenshot";
   if (mime.startsWith("image/")) return "receipt";
   if (mime.includes("pdf")) return "invoice_received";

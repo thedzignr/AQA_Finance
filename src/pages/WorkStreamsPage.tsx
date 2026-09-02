@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Banknote } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -9,15 +10,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SectionTitle } from "@/components/shared/IconWell";
 import { Money } from "@/components/shared/Money";
 import { useData } from "@/data/DataProvider";
 import { workStreamMonthlyTrend, workStreamSummaries } from "@/lib/selectors";
 import { formatGBP } from "@/lib/utils";
-
-const COLORS = ["#10b981", "#3b82f6", "#a855f7", "#f59e0b", "#64748b"];
+import { CHART_COLORS } from "@/lib/palette";
 
 export function WorkStreamsPage() {
   const { data } = useData();
@@ -38,7 +39,8 @@ export function WorkStreamsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Work Streams"
-        description="Income, expenses and net profit across PHV, trade plate, design, freelance and other work."
+        icon={Banknote}
+        description="Ledger profit by stream. Log the actual hours, shifts and mileage on the Work log, then invoice from there."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -48,7 +50,7 @@ export function WorkStreamsPage() {
               <div className="flex items-center justify-between">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: COLORS[i % COLORS.length] }}
+                  style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
                 />
                 <div className="flex items-center gap-1.5">
                   {!s.workStream.tracks_expenses && <Badge variant="secondary">Wage</Badge>}
@@ -85,7 +87,7 @@ export function WorkStreamsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Monthly net by work stream</CardTitle>
+          <SectionTitle icon={Banknote}>Monthly net by work stream</SectionTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={320}>
@@ -99,7 +101,7 @@ export function WorkStreamsPage() {
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {data.workStreams.map((w, i) => (
-                <Bar key={w.id} dataKey={w.code} name={w.name} stackId="a" fill={COLORS[i % COLORS.length]} radius={[2, 2, 0, 0]} />
+                <Bar key={w.id} dataKey={w.code} name={w.name} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[2, 2, 0, 0]} />
               ))}
             </BarChart>
           </ResponsiveContainer>

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Briefcase, Layers, PiggyBank, TrendingDown, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -13,6 +14,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Money } from "@/components/shared/Money";
+import { SectionTitle } from "@/components/shared/IconWell";
 import { useData } from "@/data/DataProvider";
 import {
   categorySpendForMonth,
@@ -66,20 +68,21 @@ export function BudgetPage() {
     <div className="space-y-6">
       <PageHeader
         title="Budget"
+        icon={PiggyBank}
         description={`Planned vs actual spending for ${monthName.format(new Date())}, plus personal/business split and work-stream profitability.`}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Budgeted" value={formatGBP(totalBudget)} accent="primary" />
-        <StatCard label="Spent" value={formatGBP(totalActual)} accent={totalActual > totalBudget ? "destructive" : "default"} />
-        <StatCard label="Remaining" value={formatGBP(totalBudget - totalActual)} accent={totalBudget - totalActual < 0 ? "destructive" : "success"} />
-        <StatCard label="Business spend" value={formatGBP(ownershipSplit.business)} />
+        <StatCard label="Budgeted" value={formatGBP(totalBudget)} icon={PiggyBank} accent="primary" />
+        <StatCard label="Spent" value={formatGBP(totalActual)} icon={TrendingDown} accent={totalActual > totalBudget ? "destructive" : "default"} />
+        <StatCard label="Remaining" value={formatGBP(totalBudget - totalActual)} icon={Wallet} accent={totalBudget - totalActual < 0 ? "destructive" : "success"} />
+        <StatCard label="Business spend" value={formatGBP(ownershipSplit.business)} icon={Briefcase} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Category budgets</CardTitle>
+            <SectionTitle icon={Layers}>Category budgets</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {rows.map((r) => (
@@ -109,7 +112,7 @@ export function BudgetPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Personal vs business</CardTitle>
+            <SectionTitle icon={Briefcase}>Personal vs business</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
@@ -141,7 +144,7 @@ export function BudgetPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Work-stream profitability (this month)</CardTitle>
+          <SectionTitle icon={PiggyBank}>Work-stream profitability (this month)</SectionTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

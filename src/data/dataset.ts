@@ -4,12 +4,17 @@ import type {
   BankTransaction,
   Bill,
   Budget,
+  Client,
+  CompanyProfile,
   Debt,
   DebtPayment,
   DocumentPage,
   DocumentRecord,
   Extraction,
+  Invoice,
+  OperatingCost,
   Profile,
+  Quote,
   ReviewTask,
   Rule,
   SavingsGoal,
@@ -17,6 +22,7 @@ import type {
   Transaction,
   TransactionCategory,
   TransactionSplit,
+  WorkEntry,
   WorkStream,
 } from "@/types/domain";
 
@@ -37,6 +43,7 @@ export interface Dataset {
   extractions: Extraction[];
   bills: Bill[];
   subscriptions: Subscription[];
+  operatingCosts: OperatingCost[];
   debts: Debt[];
   debtPayments: DebtPayment[];
   savingsGoals: SavingsGoal[];
@@ -45,6 +52,11 @@ export interface Dataset {
   rules: Rule[];
   reviewTasks: ReviewTask[];
   auditLog: AuditLogEntry[];
+  companyProfiles: CompanyProfile[];
+  clients: Client[];
+  quotes: Quote[];
+  invoices: Invoice[];
+  workEntries: WorkEntry[];
 }
 
 /** Maps a Dataset key to its element type — used by the generic repository. */
@@ -59,6 +71,7 @@ export interface CollectionMap {
   extractions: Extraction;
   bills: Bill;
   subscriptions: Subscription;
+  operatingCosts: OperatingCost;
   debts: Debt;
   debtPayments: DebtPayment;
   savingsGoals: SavingsGoal;
@@ -67,6 +80,11 @@ export interface CollectionMap {
   rules: Rule;
   reviewTasks: ReviewTask;
   auditLog: AuditLogEntry;
+  companyProfiles: CompanyProfile;
+  clients: Client;
+  quotes: Quote;
+  invoices: Invoice;
+  workEntries: WorkEntry;
 }
 
 export type CollectionName = keyof CollectionMap;
@@ -83,6 +101,7 @@ export const COLLECTION_TABLE: Record<CollectionName, string> = {
   extractions: "extractions",
   bills: "bills",
   subscriptions: "subscriptions",
+  operatingCosts: "operating_costs",
   debts: "debts",
   debtPayments: "debt_payments",
   savingsGoals: "savings_goals",
@@ -91,6 +110,11 @@ export const COLLECTION_TABLE: Record<CollectionName, string> = {
   rules: "rules",
   reviewTasks: "review_tasks",
   auditLog: "audit_log",
+  companyProfiles: "company_profiles",
+  clients: "clients",
+  quotes: "quotes",
+  invoices: "invoices",
+  workEntries: "work_entries",
 };
 
 export function emptyDataset(): Dataset {
@@ -106,6 +130,7 @@ export function emptyDataset(): Dataset {
     extractions: [],
     bills: [],
     subscriptions: [],
+    operatingCosts: [],
     debts: [],
     debtPayments: [],
     savingsGoals: [],
@@ -114,5 +139,10 @@ export function emptyDataset(): Dataset {
     rules: [],
     reviewTasks: [],
     auditLog: [],
+    companyProfiles: [],
+    clients: [],
+    quotes: [],
+    invoices: [],
+    workEntries: [],
   };
 }

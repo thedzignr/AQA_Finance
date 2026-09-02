@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { CalendarClock, Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SectionTitle } from "@/components/shared/IconWell";
 import { StatCard } from "@/components/shared/StatCard";
 import { Money } from "@/components/shared/Money";
 import { useData } from "@/data/DataProvider";
@@ -23,13 +24,14 @@ import {
 } from "@/lib/selectors";
 import { detectRecurringBills } from "@/lib/insights";
 import { formatGBP, genId, titleCase } from "@/lib/utils";
-import { DEMO_USER_ID } from "@/data/seed";
+import { useAuth } from "@/data/auth";
 import type { Bill } from "@/types/domain";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 export function BillsPage() {
   const { data, accountById, categoryById, insert } = useData();
+  const { userId } = useAuth();
   const [detected, setDetected] = useState(false);
 
   const upcoming = useMemo(() => upcomingBills(data, 45), [data]);
@@ -50,9 +52,10 @@ export function BillsPage() {
     .reduce((s, x) => s + x.amount_estimate, 0);
 
   async function addDetectedBill(name: string, amount: number) {
+    if (!userId) return;
     const bill: Bill = {
       id: genId("bill"),
-      user_id: DEMO_USER_ID,
+      user_id: userId,
       name,
       category_id: null,
       amount_estimate: Math.round(amount * 100) / 100,
@@ -72,6 +75,7 @@ export function BillsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Bills & Subscriptions"
+        icon={CalendarClock}
         description="Track recurring bills and subscriptions, see what’s due, and estimate your fixed monthly costs."
         actions={
           <Button variant="outline" size="sm" disabled>
@@ -91,9 +95,7 @@ export function BillsPage() {
       {recurringSuggestions.length > 0 && !detected && (
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" /> Detected recurring spending
-            </CardTitle>
+            <SectionTitle icon={Sparkles}>Detected recurring spending</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {recurringSuggestions.map((s) => (
@@ -114,7 +116,7 @@ export function BillsPage() {
       {/* Upcoming calendar */}
       <Card>
         <CardHeader>
-          <CardTitle>Upcoming</CardTitle>
+          <SectionTitle icon={CalendarClock}>Upcoming</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {[...upcoming.map((u) => ({

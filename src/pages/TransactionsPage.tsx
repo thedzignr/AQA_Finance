@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import {
+  ArrowDownLeft,
   ArrowLeftRight,
+  ArrowUpRight,
   Pencil,
   Plus,
+  Receipt,
   Search,
   SplitSquareHorizontal,
   Tags,
@@ -38,12 +41,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { IconWell } from "@/components/shared/IconWell";
 import { Money } from "@/components/shared/Money";
 import { OwnershipBadge } from "@/components/shared/StatusBadges";
 import { TransactionDialog } from "@/components/transactions/TransactionDialog";
 import { SplitDialog } from "@/components/transactions/SplitDialog";
 import { TransferLinkDialog } from "@/components/transactions/TransferLinkDialog";
 import { useData } from "@/data/DataProvider";
+import type { Dataset } from "@/data/dataset";
 import type { OwnershipType, Transaction } from "@/types/domain";
 import { formatGBP } from "@/lib/utils";
 
@@ -156,15 +161,17 @@ export function TransactionsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Transactions"
+        icon={Receipt}
         description="One unified ledger for every money movement across all accounts and work streams."
         actions={
           <Button
+            className="h-11 w-full sm:h-10 sm:w-auto"
             onClick={() => {
               setEditing(null);
               setDialogOpen(true);
             }}
           >
-            <Plus className="h-4 w-4" /> Add transaction
+            <Plus className="h-4 w-4" /> Add
           </Button>
         }
       />
@@ -172,65 +179,57 @@ export function TransactionsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="space-y-3 p-4">
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <div className="relative md:col-span-2 lg:col-span-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search description or merchant…"
-                className="pl-8"
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground sm:top-2.5" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search description or merchant…"
+              className="pl-9"
+            />
+          </div>
+          <details className="md:hidden">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+              Filters{hasFilters ? " · on" : ""}
+            </summary>
+            <div className="mt-3 grid gap-2">
+              <FilterSelects
+                data={data}
+                accountFilter={accountFilter}
+                setAccountFilter={setAccountFilter}
+                workStreamFilter={workStreamFilter}
+                setWorkStreamFilter={setWorkStreamFilter}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                ownershipFilter={ownershipFilter}
+                setOwnershipFilter={setOwnershipFilter}
+                taxFilter={taxFilter}
+                setTaxFilter={setTaxFilter}
+                fromDate={fromDate}
+                setFromDate={setFromDate}
+                toDate={toDate}
+                setToDate={setToDate}
               />
             </div>
-            <Select value={accountFilter} onValueChange={setAccountFilter}>
-              <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All accounts</SelectItem>
-                {data.accounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={workStreamFilter} onValueChange={setWorkStreamFilter}>
-              <SelectTrigger><SelectValue placeholder="Work stream" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All work streams</SelectItem>
-                <SelectItem value="none">Unassigned</SelectItem>
-                {data.workStreams.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {[...data.categories]
-                  .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <Select value={ownershipFilter} onValueChange={setOwnershipFilter}>
-              <SelectTrigger><SelectValue placeholder="Ownership" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All ownership</SelectItem>
-                <SelectItem value="personal">Personal</SelectItem>
-                <SelectItem value="business">Business</SelectItem>
-                <SelectItem value="mixed">Mixed</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={taxFilter} onValueChange={setTaxFilter}>
-              <SelectTrigger><SelectValue placeholder="Tax" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="tax">Tax relevant</SelectItem>
-                <SelectItem value="non_tax">Not tax relevant</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </details>
+          <div className="hidden gap-2 md:grid md:grid-cols-2 lg:grid-cols-4">
+            <FilterSelects
+              data={data}
+              accountFilter={accountFilter}
+              setAccountFilter={setAccountFilter}
+              workStreamFilter={workStreamFilter}
+              setWorkStreamFilter={setWorkStreamFilter}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+              ownershipFilter={ownershipFilter}
+              setOwnershipFilter={setOwnershipFilter}
+              taxFilter={taxFilter}
+              setTaxFilter={setTaxFilter}
+              fromDate={fromDate}
+              setFromDate={setFromDate}
+              toDate={toDate}
+              setToDate={setToDate}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="text-muted-foreground">{filtered.length} results</span>
@@ -248,7 +247,7 @@ export function TransactionsPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/40 p-3">
+        <div className="hidden flex-wrap items-center gap-2 rounded-lg border bg-accent/40 p-3 md:flex">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -304,8 +303,53 @@ export function TransactionsPage() {
         </div>
       )}
 
-      {/* Ledger table */}
-      <Card>
+      {/* Ledger — stacked rows on phone, table from tablet up */}
+      <div className="space-y-2 md:hidden">
+        {filtered.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className="flex w-full items-center gap-3 rounded-[1.25rem] bg-card p-3 text-left shadow-card"
+            onClick={() => {
+              setEditing(t);
+              setDialogOpen(true);
+            }}
+          >
+            <IconWell
+              icon={
+                t.kind === "transfer"
+                  ? ArrowLeftRight
+                  : t.direction === "inflow"
+                    ? ArrowDownLeft
+                    : ArrowUpRight
+              }
+              size="sm"
+              variant={
+                t.kind === "transfer"
+                  ? "muted"
+                  : t.direction === "inflow"
+                    ? "success"
+                    : "destructive"
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{t.description}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {dateFmt.format(new Date(t.transaction_date))}
+                {t.counterparty ? ` · ${t.counterparty}` : ""}
+              </p>
+            </div>
+            <Money value={t.direction === "inflow" ? t.amount : -t.amount} colored signed />
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No transactions match your filters.
+          </p>
+        )}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -338,6 +382,23 @@ export function TransactionsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      <IconWell
+                        icon={
+                          t.kind === "transfer"
+                            ? ArrowLeftRight
+                            : t.direction === "inflow"
+                              ? ArrowDownLeft
+                              : ArrowUpRight
+                        }
+                        size="sm"
+                        variant={
+                          t.kind === "transfer"
+                            ? "muted"
+                            : t.direction === "inflow"
+                              ? "success"
+                              : "destructive"
+                        }
+                      />
                       <span className="font-medium">{t.description}</span>
                       {t.tax_relevant && <Badge variant="default" className="h-5">Tax</Badge>}
                       {t.linked_document_id && (
@@ -433,5 +494,109 @@ export function TransactionsPage() {
         transaction={transferTarget}
       />
     </div>
+  );
+}
+
+function FilterSelects({
+  data,
+  accountFilter,
+  setAccountFilter,
+  workStreamFilter,
+  setWorkStreamFilter,
+  categoryFilter,
+  setCategoryFilter,
+  ownershipFilter,
+  setOwnershipFilter,
+  taxFilter,
+  setTaxFilter,
+  fromDate,
+  setFromDate,
+  toDate,
+  setToDate,
+}: {
+  data: Dataset;
+  accountFilter: string;
+  setAccountFilter: (v: string) => void;
+  workStreamFilter: string;
+  setWorkStreamFilter: (v: string) => void;
+  categoryFilter: string;
+  setCategoryFilter: (v: string) => void;
+  ownershipFilter: string;
+  setOwnershipFilter: (v: string) => void;
+  taxFilter: string;
+  setTaxFilter: (v: string) => void;
+  fromDate: string;
+  setFromDate: (v: string) => void;
+  toDate: string;
+  setToDate: (v: string) => void;
+}) {
+  return (
+    <>
+      <Select value={accountFilter} onValueChange={setAccountFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Account" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All accounts</SelectItem>
+          {data.accounts.map((a) => (
+            <SelectItem key={a.id} value={a.id}>
+              {a.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={workStreamFilter} onValueChange={setWorkStreamFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Work stream" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All work streams</SelectItem>
+          <SelectItem value="none">Unassigned</SelectItem>
+          {data.workStreams.map((w) => (
+            <SelectItem key={w.id} value={w.id}>
+              {w.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All categories</SelectItem>
+          {[...data.categories]
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+      <Select value={ownershipFilter} onValueChange={setOwnershipFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Ownership" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All ownership</SelectItem>
+          <SelectItem value="personal">Personal</SelectItem>
+          <SelectItem value="business">Business</SelectItem>
+          <SelectItem value="mixed">Mixed</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={taxFilter} onValueChange={setTaxFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Tax" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All</SelectItem>
+          <SelectItem value="tax">Tax relevant</SelectItem>
+          <SelectItem value="non_tax">Not tax relevant</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+      <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+    </>
   );
 }

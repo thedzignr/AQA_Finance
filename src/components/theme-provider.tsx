@@ -15,7 +15,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "aqa_theme";
+const STORAGE_KEY = "aqa_theme_v2";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
       if (stored) return stored;
     }
-    return "dark";
+    return "light";
   });
 
   useEffect(() => {

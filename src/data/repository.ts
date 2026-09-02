@@ -2,12 +2,11 @@ import type { CollectionMap, CollectionName, Dataset } from "./dataset";
 
 /**
  * Backend-agnostic persistence contract. The UI never talks to a backend
- * directly — it goes through a `Repository`. Two implementations exist:
- *   - MockRepository    (localStorage + seeded demo data, default/offline)
- *   - SupabaseRepository (live Postgres with RLS)
+ * directly — it goes through a `Repository`. The live implementation is
+ * `SupabaseRepository` (Postgres + RLS, scoped to the authenticated user).
  */
 export interface Repository {
-  readonly backend: "mock" | "supabase";
+  readonly backend: "supabase";
   /** Load the full dataset for the current user. */
   loadAll(): Promise<Dataset>;
   insert<K extends CollectionName>(
@@ -20,6 +19,4 @@ export interface Repository {
     patch: Partial<CollectionMap[K]>,
   ): Promise<void>;
   remove<K extends CollectionName>(name: K, id: string): Promise<void>;
-  /** Reset all local data back to the seed (mock backend only). */
-  reset?(): Promise<Dataset>;
 }

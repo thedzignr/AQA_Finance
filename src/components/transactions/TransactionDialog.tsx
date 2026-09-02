@@ -27,7 +27,7 @@ import type {
   TransactionKind,
 } from "@/types/domain";
 import { genId, todayISO } from "@/lib/utils";
-import { DEMO_USER_ID } from "@/data/seed";
+import { useAuth } from "@/data/auth";
 
 const KINDS: TransactionKind[] = [
   "income",
@@ -49,6 +49,7 @@ interface Props {
 
 export function TransactionDialog({ open, onOpenChange, transaction, defaults }: Props) {
   const { data, insert, update } = useData();
+  const { userId } = useAuth();
   const isEdit = Boolean(transaction);
 
   const [form, setForm] = useState<Partial<Transaction>>({});
@@ -95,6 +96,7 @@ export function TransactionDialog({ open, onOpenChange, transaction, defaults }:
 
   async function handleSave() {
     if (!form.description || !form.amount) return;
+    if (!isEdit && !userId) return;
     if (isEdit && transaction) {
       await update("transactions", transaction.id, {
         ...form,
@@ -104,7 +106,7 @@ export function TransactionDialog({ open, onOpenChange, transaction, defaults }:
       const now = new Date().toISOString();
       const row: Transaction = {
         id: genId("t"),
-        user_id: DEMO_USER_ID,
+        user_id: userId!,
         account_id: form.account_id ?? null,
         work_stream_id: form.work_stream_id ?? null,
         category_id: form.category_id ?? null,
@@ -145,7 +147,7 @@ export function TransactionDialog({ open, onOpenChange, transaction, defaults }:
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid max-h-[60vh] gap-4 overflow-y-auto px-1 py-1 sm:grid-cols-2">
+        <div className="grid gap-4 px-1 py-1 sm:grid-cols-2">
           <Field label="Description" full>
             <Input
               value={form.description ?? ""}
@@ -308,7 +310,7 @@ export function TransactionDialog({ open, onOpenChange, transaction, defaults }:
             <div>
               <p className="text-sm font-medium">Tax relevant</p>
               <p className="text-xs text-muted-foreground">
-                Include in sole-trader tax records & evidence tracking.
+                Include in company tax records & evidence tracking.
               </p>
             </div>
             <Switch

@@ -27,7 +27,8 @@ needs one unified ledger that doubles as tax-ready record keeping for **2025/26*
   statement (low-confidence parses go to the review queue instead).
 - **Document ingestion** for receipts, invoices, weekly operator/PHV statements,
   bank statements, screenshots, CSVs and PDFs — auto-classified, parsed and
-  confidence-scored.
+  confidence-scored. A **receive-only mailbox** can ingest parking tickets,
+  invoices and receipts sent as email attachments into the same pipeline.
 - **Review queue** with a keyboard-driven workflow for low-confidence OCR/parse
   results (approve / reject / link / create / dismiss).
 - **Bills & subscriptions**, **debts** (APR, minimum payments, payoff timeline),
@@ -106,6 +107,35 @@ edits survive reloads until you reset.
 
 > With `VITE_DATA_BACKEND=mock` (or blank keys) the app stays in offline demo
 > mode. The data shapes are identical, so nothing else changes.
+
+---
+
+## Receive-only receipts inbox
+
+Forward parking tickets, invoices and receipts to a mailbox that **cannot send**.
+Resend delivers `email.received` to `POST /api/inbound-email`, which stores the
+attachment in Supabase Storage and opens a Review task. The app never calls
+Resend's send API.
+
+1. Install Resend on the Vercel project (marketplace: `resend/resend-email`).
+   Receiving can use the Resend-managed `*.resend.app` address so you do **not**
+   point MX at an existing mailbox domain.
+2. Create a Resend webhook for `email.received` → `https://<prod>/api/inbound-email`.
+3. Set server env vars (never `VITE_` except the displayed address):
+
+   ```env
+   RESEND_API_KEY=
+   RESEND_WEBHOOK_SECRET=
+   SUPABASE_SERVICE_ROLE_KEY=
+   AQA_INGEST_USER_ID=
+   VITE_INBOUND_MAILBOX=receipts@xxxx.resend.app
+   ```
+
+4. Put that address on barriers, fuel apps and supplier invoices. Refresh the
+   app after mail arrives, then confirm the item in Review.
+
+Local `npm run dev` does not serve `/api`. Use a deployed URL (or `vercel dev`)
+for the webhook.
 
 ---
 

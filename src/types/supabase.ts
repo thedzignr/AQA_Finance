@@ -18,7 +18,9 @@ import type {
   DocumentPage,
   DocumentRecord,
   Extraction,
+  OperatingCost,
   Profile,
+  Quote,
   ReviewTask,
   Rule,
   SavingsGoal,
@@ -26,7 +28,11 @@ import type {
   Transaction,
   TransactionCategory,
   TransactionSplit,
+  WorkEntry,
   WorkStream,
+  Client,
+  CompanyProfile,
+  Invoice,
 } from "./domain";
 
 type TableShape<Row> = {
@@ -50,6 +56,7 @@ export interface Database {
       extractions: TableShape<Extraction>;
       bills: TableShape<Bill>;
       subscriptions: TableShape<Subscription>;
+      operating_costs: TableShape<OperatingCost>;
       debts: TableShape<Debt>;
       debt_payments: TableShape<DebtPayment>;
       savings_goals: TableShape<SavingsGoal>;
@@ -58,6 +65,11 @@ export interface Database {
       rules: TableShape<Rule>;
       review_tasks: TableShape<ReviewTask>;
       audit_log: TableShape<AuditLogEntry>;
+      company_profiles: TableShape<CompanyProfile>;
+      clients: TableShape<Client>;
+      quotes: TableShape<Quote>;
+      invoices: TableShape<Invoice>;
+      work_entries: TableShape<WorkEntry>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

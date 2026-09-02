@@ -1,5 +1,7 @@
 import type { Dataset } from "@/data/dataset";
 import type { DocumentRecord, Transaction } from "@/types/domain";
+import { invoiceDisplayStatus } from "./commerce";
+import { formatGBP, todayISO } from "./utils";
 
 export interface Insight {
   id: string;
@@ -9,7 +11,8 @@ export interface Insight {
     | "anomaly"
     | "tax_pot_suggestion"
     | "unreconciled"
-    | "missing_evidence";
+    | "missing_evidence"
+    | "overdue_invoice";
   severity: "low" | "medium" | "high";
   title: string;
   detail: string;
@@ -172,8 +175,26 @@ export function detectUnreconciled(data: Dataset): Insight[] {
   ];
 }
 
+export function detectOverdueInvoices(data: Dataset): Insight[] {
+  const today = todayISO();
+  return (data.invoices ?? [])
+    .filter((i) => invoiceDisplayStatus(i, today) === "overdue")
+    .map((i) => {
+      const outstanding = (Number(i.gross_amount) || 0) - (Number(i.paid_amount) || 0);
+      return {
+        id: `overdue_inv_${i.id}`,
+        type: "overdue_invoice" as const,
+        severity: "high" as const,
+        title: `Overdue invoice ${i.number}`,
+        detail: `Due ${i.due_date}. ${formatGBP(outstanding)} still outstanding.`,
+        amount: outstanding,
+      };
+    });
+}
+
 export function allInsights(data: Dataset): Insight[] {
   return [
+    ...detectOverdueInvoices(data),
     ...detectAnomalies(data),
     ...detectMissingEvidence(data),
     ...detectDuplicateUploads(data),

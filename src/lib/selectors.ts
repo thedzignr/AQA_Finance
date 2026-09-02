@@ -2,13 +2,26 @@ import type { Dataset } from "@/data/dataset";
 import type {
   Account,
   Bill,
+  BillingCycle,
+  Client,
+  CompanyProfile,
   DashboardSummary,
+  Invoice,
+  OperatingCost,
+  OperatingCostCategory,
   TaxYearSummary,
   Transaction,
   WorkStream,
   WorkStreamSummary,
 } from "@/types/domain";
-import { monthKey } from "./utils";
+import {
+  invoiceBalance,
+  invoiceDisplayStatus,
+  mileageAllowance,
+  quoteDisplayStatus,
+  workEntryAmount,
+} from "./commerce";
+import { monthKey, roundMoney, startOfWeekISO, todayISO, weekDatesISO } from "./utils";
 
 const CASH_ACCOUNT_TYPES: Account["account_type"][] = [
   "current",
@@ -55,6 +68,23 @@ export function cashFlowForMonth(data: Dataset, key = monthKey()) {
     else moneyOut += t.amount;
   }
   return { moneyIn, moneyOut, net: moneyIn - moneyOut };
+}
+
+export function monthlyCashFlowTrend(data: Dataset, months = 12) {
+  const now = new Date();
+  const rows: Array<{ month: string; income: number; expense: number; net: number }> = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = monthKey(d);
+    const { moneyIn, moneyOut, net } = cashFlowForMonth(data, key);
+    rows.push({
+      month: d.toLocaleString("en-GB", { month: "short" }),
+      income: moneyIn,
+      expense: moneyOut,
+      net,
+    });
+  }
+  return rows;
 }
 
 /** Allowable (deductible) portion of a business expense. */
@@ -255,39 +285,184 @@ export function workStreamMonthlyTrend(data: Dataset, months = 6) {
   });
 }
 
+// ----------------------------------------------------------------------------
+// Running costs — recurring outgoings normalised to a monthly figure
+// ----------------------------------------------------------------------------
+
+const WEEKS_PER_MONTH = 4.33;
+
+export type RunningCostGroup = "bill" | "subscription" | "debt";
+
+export interface RunningCostItem {
+  id: string;
+  name: string;
+  group: RunningCostGroup;
+  cadence: string; // human label, e.g. "Monthly", "Yearly"
+  rawAmount: number; // amount charged per its own cadence
+  monthly: number; // normalised to a monthly figure
+}
+
+export interface RunningCostsSummary {
+  items: RunningCostItem[]; // sorted by monthly cost, descending
+  byGroup: Record<RunningCostGroup, number>;
+  monthlyTotal: number;
+  yearlyTotal: number;
+}
+
+function monthlyFromBillFrequency(amount: number, frequency: Bill["frequency"]): number {
+  switch (frequency) {
+    case "weekly":
+      return amount * WEEKS_PER_MONTH;
+    case "monthly":
+      return amount;
+    case "quarterly":
+      return amount / 3;
+    case "yearly":
+      return amount / 12;
+    default:
+      return amount;
+  }
+}
+
+function cadenceLabel(frequency: string): string {
+  switch (frequency) {
+    case "weekly":
+      return "Weekly";
+    case "monthly":
+      return "Monthly";
+    case "quarterly":
+      return "Quarterly";
+    case "yearly":
+      return "Yearly";
+    default:
+      return "Custom";
+  }
+}
+
+/**
+ * Recurring "running costs" of the user's finances — active bills,
+ * subscriptions and minimum debt payments — each normalised to a comparable
+ * monthly amount, with per-group and overall totals.
+ */
+export function runningCosts(data: Dataset): RunningCostsSummary {
+  const items: RunningCostItem[] = [];
+
+  for (const b of data.bills) {
+    if (!b.active) continue;
+    const raw = b.amount_estimate ?? 0;
+    if (raw <= 0) continue;
+    items.push({
+      id: b.id,
+      name: b.name,
+      group: "bill",
+      cadence: cadenceLabel(b.frequency),
+      rawAmount: raw,
+      monthly: monthlyFromBillFrequency(raw, b.frequency),
+    });
+  }
+
+  for (const s of data.subscriptions) {
+    if (!s.active) continue;
+    const raw = s.amount_estimate;
+    if (raw <= 0) continue;
+    const monthly =
+      s.billing_cycle === "weekly"
+        ? raw * WEEKS_PER_MONTH
+        : s.billing_cycle === "yearly"
+          ? raw / 12
+          : raw;
+    items.push({
+      id: s.id,
+      name: s.name,
+      group: "subscription",
+      cadence: cadenceLabel(s.billing_cycle),
+      rawAmount: raw,
+      monthly,
+    });
+  }
+
+  for (const d of data.debts) {
+    if (d.status !== "active") continue;
+    const min = d.minimum_payment ?? 0;
+    if (min <= 0) continue;
+    items.push({
+      id: d.id,
+      name: d.name,
+      group: "debt",
+      cadence: "Monthly",
+      rawAmount: min,
+      monthly: min,
+    });
+  }
+
+  items.sort((a, b) => b.monthly - a.monthly);
+
+  const byGroup: Record<RunningCostGroup, number> = { bill: 0, subscription: 0, debt: 0 };
+  for (const item of items) byGroup[item.group] += item.monthly;
+  const monthlyTotal = byGroup.bill + byGroup.subscription + byGroup.debt;
+
+  return { items, byGroup, monthlyTotal, yearlyTotal: monthlyTotal * 12 };
+}
+
+/**
+ * Estimated monthly fixed costs (bills + subscriptions only — excludes debt
+ * minimums). Kept for callers that want the pre-debt figure.
+ */
 export function estimatedMonthlyFixedCosts(data: Dataset): number {
-  const billCost = data.bills
-    .filter((b) => b.active)
-    .reduce((sum, b) => {
-      const amt = b.amount_estimate ?? 0;
-      switch (b.frequency) {
-        case "weekly":
-          return sum + amt * 4.33;
-        case "monthly":
-          return sum + amt;
-        case "quarterly":
-          return sum + amt / 3;
-        case "yearly":
-          return sum + amt / 12;
-        default:
-          return sum + amt;
-      }
-    }, 0);
-  const subCost = data.subscriptions
-    .filter((s) => s.active)
-    .reduce((sum, s) => {
-      switch (s.billing_cycle) {
-        case "weekly":
-          return sum + s.amount_estimate * 4.33;
-        case "monthly":
-          return sum + s.amount_estimate;
-        case "yearly":
-          return sum + s.amount_estimate / 12;
-        default:
-          return sum + s.amount_estimate;
-      }
-    }, 0);
-  return billCost + subCost;
+  const { byGroup } = runningCosts(data);
+  return byGroup.bill + byGroup.subscription;
+}
+
+// ----------------------------------------------------------------------------
+// App running costs — the AQA Finance product's own operating costs
+// ----------------------------------------------------------------------------
+
+function monthlyFromCycle(amount: number, cycle: BillingCycle): number {
+  switch (cycle) {
+    case "weekly":
+      return amount * WEEKS_PER_MONTH;
+    case "yearly":
+      return amount / 12;
+    default:
+      return amount;
+  }
+}
+
+export interface AppRunningCostItem extends OperatingCost {
+  monthly: number;
+}
+
+export interface AppRunningCostsSummary {
+  items: AppRunningCostItem[]; // active costs, sorted by monthly spend desc
+  byCategory: Array<{ category: OperatingCostCategory; monthly: number }>;
+  monthlyTotal: number;
+  yearlyTotal: number;
+  usageBasedMonthly: number; // portion that is metered/variable
+}
+
+/**
+ * Operating costs of running the AQA Finance app itself (Claude API, Vercel,
+ * Supabase, domain, …), each normalised to a monthly figure with category and
+ * overall totals.
+ */
+export function appRunningCosts(data: Dataset): AppRunningCostsSummary {
+  const items: AppRunningCostItem[] = (data.operatingCosts ?? [])
+    .filter((c) => c.active)
+    .map((c) => ({ ...c, monthly: monthlyFromCycle(c.amount_estimate, c.billing_cycle) }))
+    .sort((a, b) => b.monthly - a.monthly);
+
+  const catMap = new Map<OperatingCostCategory, number>();
+  let usageBasedMonthly = 0;
+  for (const item of items) {
+    catMap.set(item.category, (catMap.get(item.category) ?? 0) + item.monthly);
+    if (item.usage_based) usageBasedMonthly += item.monthly;
+  }
+  const byCategory = [...catMap.entries()]
+    .map(([category, monthly]) => ({ category, monthly }))
+    .sort((a, b) => b.monthly - a.monthly);
+
+  const monthlyTotal = items.reduce((s, i) => s + i.monthly, 0);
+  return { items, byCategory, monthlyTotal, yearlyTotal: monthlyTotal * 12, usageBasedMonthly };
 }
 
 export function workStreamLabel(
@@ -295,4 +470,221 @@ export function workStreamLabel(
   fallback = "Unassigned",
 ): string {
   return ws?.name ?? fallback;
+}
+
+// ----------------------------------------------------------------------------
+// LTD operations — sales, VAT, work log, corporation tax
+// ----------------------------------------------------------------------------
+
+export function companyProfile(data: Dataset): CompanyProfile | undefined {
+  return data.companyProfiles[0];
+}
+
+export interface SalesSummary {
+  outstanding: number;
+  overdue: number;
+  overdueCount: number;
+  paidThisMonth: number;
+  draftCount: number;
+  sentCount: number;
+  quotesAwaiting: number;
+  quotePipeline: number;
+}
+
+export function salesSummary(data: Dataset, today = todayISO()): SalesSummary {
+  const invoices = data.invoices ?? [];
+  let outstanding = 0;
+  let overdue = 0;
+  let overdueCount = 0;
+  let paidThisMonth = 0;
+  let draftCount = 0;
+  let sentCount = 0;
+
+  for (const inv of invoices) {
+    if (inv.status === "void") continue;
+    const remaining = invoiceBalance(inv);
+    const display = invoiceDisplayStatus(inv, today);
+    if (inv.status === "draft") draftCount += 1;
+    if (inv.status === "sent" || inv.status === "part_paid") sentCount += 1;
+    if (inv.status === "paid") {
+      if (inv.paid_date && isInMonth(inv.paid_date)) {
+        paidThisMonth += Number(inv.gross_amount) || 0;
+      }
+      continue;
+    }
+    outstanding += remaining;
+    if (display === "overdue") {
+      overdue += remaining;
+      overdueCount += 1;
+    }
+  }
+
+  const quotes = (data.quotes ?? []).filter((q) => {
+    const status = quoteDisplayStatus(q, today);
+    return status === "draft" || status === "sent" || status === "accepted";
+  });
+
+  return {
+    outstanding: roundMoney(outstanding),
+    overdue: roundMoney(overdue),
+    overdueCount,
+    paidThisMonth: roundMoney(paidThisMonth),
+    draftCount,
+    sentCount,
+    quotesAwaiting: quotes.length,
+    quotePipeline: roundMoney(quotes.reduce((s, q) => s + (Number(q.gross_amount) || 0), 0)),
+  };
+}
+
+export function clientOutstanding(data: Dataset, clientId: string): number {
+  return roundMoney(
+    (data.invoices ?? [])
+      .filter(
+        (i) =>
+          i.client_id === clientId && i.status !== "void" && i.status !== "paid",
+      )
+      .reduce((s, i) => s + invoiceBalance(i), 0),
+  );
+}
+
+export interface VatSummary {
+  outputVat: number;
+  outputNet: number;
+  scheme: CompanyProfile["vat_scheme"];
+  vatRegistered: boolean;
+}
+
+export function vatSummary(
+  data: Dataset,
+  start: string,
+  end: string,
+): VatSummary {
+  const company = companyProfile(data);
+  const cash = company?.vat_scheme === "cash_accounting";
+  let outputVat = 0;
+  let outputNet = 0;
+  for (const inv of data.invoices ?? []) {
+    if (inv.status === "void") continue;
+    const date = cash ? inv.paid_date ?? "" : inv.issue_date;
+    if (!date || date < start || date > end) continue;
+    if (cash && inv.status !== "paid" && inv.status !== "part_paid") continue;
+    const share =
+      cash && Number(inv.gross_amount)
+        ? Number(inv.paid_amount) / Number(inv.gross_amount)
+        : 1;
+    outputVat += (Number(inv.vat_amount) || 0) * share;
+    outputNet += (Number(inv.net_amount) || 0) * share;
+  }
+  return {
+    outputVat: roundMoney(outputVat),
+    outputNet: roundMoney(outputNet),
+    scheme: company?.vat_scheme ?? "none",
+    vatRegistered: Boolean(company?.vat_registered),
+  };
+}
+
+export interface WorkLogSummary {
+  hours: number;
+  miles: number;
+  amount: number;
+  unbilled: number;
+  count: number;
+  byDay: Record<string, number>;
+}
+
+export function workLogSummary(
+  data: Dataset,
+  from: string,
+  to: string,
+): WorkLogSummary {
+  const entries = (data.workEntries ?? []).filter(
+    (e) => e.occurred_on >= from && e.occurred_on <= to,
+  );
+  let hours = 0;
+  let miles = 0;
+  let amount = 0;
+  let unbilled = 0;
+  const byDay: Record<string, number> = {};
+  for (const e of entries) {
+    hours += Number(e.hours) || 0;
+    miles += Number(e.miles) || 0;
+    const a = workEntryAmount(e);
+    amount += a;
+    if (e.billable && !e.invoiced) unbilled += a;
+    byDay[e.occurred_on] = (byDay[e.occurred_on] ?? 0) + (Number(e.hours) || 0);
+  }
+  return {
+    hours: roundMoney(hours),
+    miles: roundMoney(miles),
+    amount: roundMoney(amount),
+    unbilled: roundMoney(unbilled),
+    count: entries.length,
+    byDay,
+  };
+}
+
+export function thisWeekWorkLog(data: Dataset): WorkLogSummary {
+  const days = weekDatesISO();
+  return workLogSummary(data, days[0], days[6]);
+}
+
+export function thisWeekHoursByDay(data: Dataset): Array<{ date: string; hours: number }> {
+  const days = weekDatesISO();
+  const summary = workLogSummary(data, days[0], days[6]);
+  return days.map((date) => ({ date, hours: summary.byDay[date] ?? 0 }));
+}
+
+export function ytdMileage(data: Dataset, year = new Date().getFullYear()): number {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+  return (data.workEntries ?? [])
+    .filter((e) => e.occurred_on >= start && e.occurred_on <= end)
+    .reduce((s, e) => s + (Number(e.miles) || 0), 0);
+}
+
+export function ytdMileageAllowance(data: Dataset, year = new Date().getFullYear()) {
+  const miles = ytdMileage(data, year);
+  return { miles, ...mileageAllowance(miles) };
+}
+
+/** UK corporation tax 2025/26: 19% ≤ £50k, 25% ≥ £250k, marginal relief between. */
+export function estimateCorporationTax(profit: number) {
+  const p = Math.max(0, profit);
+  if (p === 0) return { tax: 0, effectiveRate: 0, band: "none" as const };
+  if (p <= 50_000) {
+    return { tax: roundMoney(p * 0.19), effectiveRate: 19, band: "small" as const };
+  }
+  if (p >= 250_000) {
+    return { tax: roundMoney(p * 0.25), effectiveRate: 25, band: "main" as const };
+  }
+  const tax = roundMoney(p * 0.25 - (250_000 - p) * (3 / 200));
+  return {
+    tax,
+    effectiveRate: p > 0 ? (tax / p) * 100 : 0,
+    band: "marginal" as const,
+  };
+}
+
+export function isLimitedCompany(data: Dataset): boolean {
+  return (companyProfile(data)?.entity_type ?? "limited_company") === "limited_company";
+}
+
+export function overdueInvoices(data: Dataset, today = todayISO()): Invoice[] {
+  return (data.invoices ?? [])
+    .filter((i) => invoiceDisplayStatus(i, today) === "overdue")
+    .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
+}
+
+export function recentQuotes(data: Dataset) {
+  return [...(data.quotes ?? [])].sort((a, b) =>
+    b.issue_date.localeCompare(a.issue_date),
+  );
+}
+
+export function clientByIdMap(data: Dataset): Map<string, Client> {
+  return new Map((data.clients ?? []).map((c) => [c.id, c]));
+}
+
+export function startOfCurrentWeek(): string {
+  return startOfWeekISO();
 }

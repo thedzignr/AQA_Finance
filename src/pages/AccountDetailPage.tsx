@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, CreditCard, Landmark, List, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -14,15 +14,18 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Money } from "@/components/shared/Money";
+import { IconWell, SectionTitle } from "@/components/shared/IconWell";
 import { StatCard } from "@/components/shared/StatCard";
 import {
   ReconciliationBadge,
 } from "@/components/shared/StatusBadges";
 import { useData } from "@/data/DataProvider";
 import { accountBalance } from "@/lib/selectors";
-import { formatGBP, titleCase } from "@/lib/utils";
+import { daysUntil, formatGBP, formatPct, titleCase } from "@/lib/utils";
+import type { Account } from "@/types/domain";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+const longDateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 export function AccountDetailPage() {
   const { accountId } = useParams();
@@ -70,12 +73,15 @@ export function AccountDetailPage() {
       </Button>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">{account.name}</h2>
-          <p className="text-sm text-muted-foreground">
-            {account.provider ?? "—"} · {titleCase(account.account_type)}{" "}
-            {account.last4 ? `· •••• ${account.last4}` : ""}
-          </p>
+        <div className="flex items-start gap-3">
+          <IconWell icon={account.account_type === "credit_card" ? CreditCard : Landmark} variant="primary" size="lg" />
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">{account.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {account.provider ?? "—"} · {titleCase(account.account_type)}{" "}
+              {account.last4 ? `· •••• ${account.last4}` : ""}
+            </p>
+          </div>
         </div>
         <Badge variant={account.active ? "success" : "secondary"}>
           {account.active ? "Active" : "Inactive"}
@@ -83,11 +89,15 @@ export function AccountDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Balance" value={formatGBP(accountBalance(account))} accent="primary" />
-        <StatCard label="Money in" value={formatGBP(inflow)} accent="success" />
-        <StatCard label="Money out" value={formatGBP(outflow)} accent="destructive" />
-        <StatCard label="Transactions" value={String(transactions.length)} />
+        <StatCard label="Balance" value={formatGBP(accountBalance(account))} icon={Wallet} accent="primary" />
+        <StatCard label="Money in" value={formatGBP(inflow)} icon={ArrowDownLeft} accent="success" />
+        <StatCard label="Money out" value={formatGBP(outflow)} icon={ArrowUpRight} accent="destructive" />
+        <StatCard label="Transactions" value={String(transactions.length)} icon={List} />
       </div>
+
+      {account.account_type === "credit_card" && (
+        <CardTermsPanel account={account} />
+      )}
 
       <Tabs defaultValue="transactions">
         <TabsList>
@@ -135,7 +145,7 @@ export function AccountDetailPage() {
         <TabsContent value="reconcile">
           <Card>
             <CardHeader>
-              <CardTitle>Imported bank rows</CardTitle>
+              <SectionTitle icon={List}>Imported bank rows</SectionTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -179,6 +189,70 @@ export function AccountDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function CardTermsPanel({ account }: { account: Account }) {
+  const owed = Math.abs(accountBalance(account));
+  const limit = account.credit_limit;
+  const available = limit != null ? limit - owed : null;
+  const utilisation = limit ? (owed / limit) * 100 : null;
+  const daysLeft = account.interest_free_until ? daysUntil(account.interest_free_until) : null;
+  const offerActive = daysLeft != null && daysLeft > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <SectionTitle icon={CreditCard}>Card terms</SectionTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Term label="Credit limit" value={limit != null ? formatGBP(limit) : "—"} />
+        <Term
+          label="Available"
+          value={available != null ? formatGBP(available) : "—"}
+          hint={utilisation != null ? `${Math.round(utilisation)}% used` : undefined}
+        />
+        <Term
+          label="Standard APR"
+          value={account.apr != null ? formatPct(account.apr, 1) : "—"}
+        />
+        <div className="space-y-1">
+          <p className="text-xs uppercase text-muted-foreground">Interest-free offer</p>
+          {account.interest_free_until ? (
+            offerActive ? (
+              <>
+                <Badge variant="success">
+                  {formatPct(account.promo_apr ?? 0, account.promo_apr ? 1 : 0)} until{" "}
+                  {longDateFmt.format(new Date(account.interest_free_until))}
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {daysLeft}d left · then {account.apr != null ? formatPct(account.apr, 1) : "standard APR"}
+                </p>
+              </>
+            ) : (
+              <>
+                <Badge variant="destructive">Offer expired</Badge>
+                <p className="text-xs text-muted-foreground">
+                  Ended {longDateFmt.format(new Date(account.interest_free_until))}
+                </p>
+              </>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">No active offer</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Term({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs uppercase text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tnum">{value}</p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

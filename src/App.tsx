@@ -2,7 +2,9 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useData } from "@/data/DataProvider";
+import { DataProvider, useData } from "@/data/DataProvider";
+import { useAuth } from "@/data/auth";
+import { LoginPage } from "@/pages/LoginPage";
 
 // Route-level code-splitting keeps the initial bundle lean; each screen and its
 // charts load on demand.
@@ -39,6 +41,27 @@ const BudgetPage = lazy(() =>
 const TaxPage = lazy(() =>
   import("@/pages/TaxPage").then((m) => ({ default: m.TaxPage })),
 );
+const RunningCostsPage = lazy(() =>
+  import("@/pages/RunningCostsPage").then((m) => ({ default: m.RunningCostsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const ClientsPage = lazy(() =>
+  import("@/pages/ClientsPage").then((m) => ({ default: m.ClientsPage })),
+);
+const QuotesPage = lazy(() =>
+  import("@/pages/QuotesPage").then((m) => ({ default: m.QuotesPage })),
+);
+const InvoicesPage = lazy(() =>
+  import("@/pages/InvoicesPage").then((m) => ({ default: m.InvoicesPage })),
+);
+const WorkLogPage = lazy(() =>
+  import("@/pages/WorkLogPage").then((m) => ({ default: m.WorkLogPage })),
+);
+const PrintDocumentPage = lazy(() =>
+  import("@/pages/PrintDocumentPage").then((m) => ({ default: m.PrintDocumentPage })),
+);
 
 function PageFallback() {
   return (
@@ -48,7 +71,47 @@ function PageFallback() {
   );
 }
 
+function FullScreen({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 export function App() {
+  const { configured, loading: authLoading, session } = useAuth();
+
+  if (!configured) {
+    return (
+      <FullScreen>
+        <p className="text-lg font-semibold text-foreground">Connect Supabase to continue</p>
+        <p className="max-w-md text-sm">
+          Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in your
+          environment, then reload. The app stores your data in your own Supabase project.
+        </p>
+      </FullScreen>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <FullScreen>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </FullScreen>
+    );
+  }
+
+  if (!session) return <LoginPage />;
+
+  return (
+    <DataProvider>
+      <AuthedApp />
+    </DataProvider>
+  );
+}
+
+function AuthedApp() {
   const { loading, error, data } = useData();
 
   if (loading && data.accounts.length === 0) {
@@ -72,17 +135,25 @@ export function App() {
   return (
     <Suspense fallback={<PageFallback />}>
     <Routes>
+      <Route path="print/invoice/:id" element={<PrintDocumentPage kind="invoice" />} />
+      <Route path="print/quote/:id" element={<PrintDocumentPage kind="quote" />} />
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="accounts" element={<AccountsPage />} />
         <Route path="accounts/:accountId" element={<AccountDetailPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="work-streams" element={<WorkStreamsPage />} />
+        <Route path="work-log" element={<WorkLogPage />} />
+        <Route path="clients" element={<ClientsPage />} />
+        <Route path="quotes" element={<QuotesPage />} />
+        <Route path="invoices" element={<InvoicesPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="review" element={<ReviewQueuePage />} />
         <Route path="bills" element={<BillsPage />} />
         <Route path="debts" element={<DebtsPage />} />
         <Route path="budget" element={<BudgetPage />} />
+        <Route path="running-costs" element={<RunningCostsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="tax" element={<TaxPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

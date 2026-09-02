@@ -68,7 +68,18 @@ export type BillFrequency = "weekly" | "monthly" | "quarterly" | "yearly" | "cus
 
 export type BillingCycle = "weekly" | "monthly" | "yearly";
 
-export type DebtType = "credit_card" | "loan" | "car_finance" | "tax" | "bnpl" | "other";
+export type DebtType =
+  | "credit_card"
+  | "store_card"
+  | "loan"
+  | "car_finance"
+  | "tax"
+  | "bnpl"
+  | "overdraft"
+  | "student_loan"
+  | "mortgage"
+  | "personal" // money owed to friends / family / informal lenders
+  | "other";
 
 export type DebtStatus = "active" | "paid_off" | "default" | "closed";
 
@@ -105,6 +116,24 @@ export type Priority = "low" | "medium" | "high";
 
 export type AuditAction = "create" | "update" | "delete" | "approve" | "reject" | "import";
 
+export type EntityType = "sole_trader" | "limited_company";
+
+export type VatScheme = "none" | "standard" | "flat_rate" | "cash_accounting";
+
+export type QuoteStatus =
+  | "draft"
+  | "sent"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "converted";
+
+export type InvoiceStatus = "draft" | "sent" | "paid" | "part_paid" | "void";
+
+export type WorkEntryType = "shift" | "hours" | "job" | "mileage" | "piece";
+
+export type LineUnit = "hours" | "days" | "miles" | "shifts" | "each";
+
 // ----------------------------------------------------------------------------
 // Tables
 // ----------------------------------------------------------------------------
@@ -127,6 +156,18 @@ export interface Account {
   current_balance: number | null;
   last4: string | null;
   active: boolean;
+  // --- Credit-card terms (only meaningful when account_type = 'credit_card') ---
+  /** Total credit limit on the card. */
+  credit_limit: number | null;
+  /** Standard / revert purchase APR once any promo period ends. */
+  apr: number | null;
+  /**
+   * Expiry date (ISO yyyy-mm-dd) of a 0% / promotional interest offer
+   * (purchase or balance transfer). Null when there is no active offer.
+   */
+  interest_free_until: string | null;
+  /** APR charged during the interest-free offer window. Usually 0. */
+  promo_apr: number | null;
   created_at: string;
 }
 
@@ -249,6 +290,35 @@ export interface Bill {
   created_at: string;
 }
 
+export type OperatingCostCategory =
+  | "ai"
+  | "hosting"
+  | "database"
+  | "domain"
+  | "email"
+  | "tooling"
+  | "other";
+
+/**
+ * A running cost of operating the AQA Finance product itself — infrastructure
+ * and SaaS the app depends on (e.g. Claude API, Vercel, Supabase), as opposed
+ * to the user's personal bills/subscriptions.
+ */
+export interface OperatingCost {
+  id: string;
+  user_id: string;
+  name: string;
+  vendor: string | null;
+  category: OperatingCostCategory;
+  amount_estimate: number; // per billing cycle
+  billing_cycle: BillingCycle; // weekly | monthly | yearly
+  /** True when metered/usage-based (e.g. Claude API) — amount is an estimate. */
+  usage_based: boolean;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Subscription {
   id: string;
   user_id: string;
@@ -274,6 +344,22 @@ export interface Debt {
   apr: number | null;
   minimum_payment: number | null;
   due_day: number | null;
+  /**
+   * End date (ISO yyyy-mm-dd) of a 0% / promotional interest window — e.g. a
+   * balance-transfer or purchase credit card, a store card, or a BNPL plan.
+   * Null when the debt has no interest-free period. While `interest_free_until`
+   * is in the future the effective rate is `promo_apr` (usually 0); once it
+   * passes, `apr` (the revert rate) applies.
+   */
+  interest_free_until: string | null;
+  /** APR charged during the interest-free window. Usually 0; null means 0. */
+  promo_apr: number | null;
+  /**
+   * UK tax-year / accounting period a debt belongs to, e.g. "2025/26".
+   * Used to group period-bound debts (Self Assessment, payments on account)
+   * into sections. Null for ongoing / revolving debts (cards, finance, etc).
+   */
+  period: string | null;
   status: DebtStatus;
   created_at: string;
 }
@@ -360,6 +446,135 @@ export interface AuditLogEntry {
   action: AuditAction;
   before_json: Record<string, unknown> | null;
   after_json: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** One row per user — legal entity, VAT, bank details and document numbering. */
+export interface CompanyProfile {
+  id: string;
+  user_id: string;
+  entity_type: EntityType;
+  legal_name: string;
+  trading_name: string | null;
+  company_number: string | null;
+  vat_registered: boolean;
+  vat_number: string | null;
+  vat_scheme: VatScheme;
+  default_vat_rate: number;
+  registered_address: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  bank_name: string | null;
+  bank_sort_code: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  invoice_prefix: string;
+  next_invoice_number: number;
+  quote_prefix: string;
+  next_quote_number: number;
+  default_payment_terms_days: number;
+  default_quote_valid_days: number;
+  invoice_footer: string | null;
+  /** 1–12; default 3 (31 March year-end). */
+  accounting_year_end_month: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Client {
+  id: string;
+  user_id: string;
+  name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  vat_number: string | null;
+  default_work_stream_id: string | null;
+  payment_terms_days: number | null;
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface DocumentLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: LineUnit;
+  unit_price: number;
+  vat_rate: number;
+}
+
+export interface Quote {
+  id: string;
+  user_id: string;
+  client_id: string | null;
+  work_stream_id: string | null;
+  number: string;
+  status: QuoteStatus;
+  issue_date: string;
+  valid_until: string | null;
+  line_items: DocumentLineItem[];
+  notes: string | null;
+  terms: string | null;
+  net_amount: number;
+  vat_amount: number;
+  gross_amount: number;
+  converted_invoice_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  user_id: string;
+  client_id: string | null;
+  work_stream_id: string | null;
+  quote_id: string | null;
+  number: string;
+  status: InvoiceStatus;
+  issue_date: string;
+  due_date: string | null;
+  paid_date: string | null;
+  paid_amount: number;
+  line_items: DocumentLineItem[];
+  notes: string | null;
+  terms: string | null;
+  net_amount: number;
+  vat_amount: number;
+  gross_amount: number;
+  linked_transaction_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A unit of work — a PHV/trade-plate shift, freelance hours, a job, or mileage.
+ * Billable entries can be rolled into an invoice.
+ */
+export interface WorkEntry {
+  id: string;
+  user_id: string;
+  work_stream_id: string | null;
+  client_id: string | null;
+  quote_id: string | null;
+  invoice_id: string | null;
+  entry_type: WorkEntryType;
+  occurred_on: string;
+  start_time: string | null;
+  end_time: string | null;
+  hours: number | null;
+  miles: number | null;
+  rate: number | null;
+  amount: number | null;
+  billable: boolean;
+  invoiced: boolean;
+  operator: string | null;
+  vehicle: string | null;
+  description: string;
+  notes: string | null;
   created_at: string;
 }
 

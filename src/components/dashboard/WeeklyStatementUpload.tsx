@@ -1,14 +1,15 @@
 import { useRef, useState } from "react";
 import { CheckCircle2, FileText, Loader2, Upload } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/shared/Money";
+import { SectionTitle } from "@/components/shared/IconWell";
 import { useData } from "@/data/DataProvider";
 import { useDocumentIngest, uniqueFileName } from "@/data/useIngest";
 import type { ParseInput } from "@/lib/parsing";
 import { genId, todayISO } from "@/lib/utils";
-import { DEMO_USER_ID } from "@/data/seed";
+import { useAuth } from "@/data/auth";
 import type { Transaction } from "@/types/domain";
 
 type State =
@@ -25,6 +26,7 @@ const SAMPLE: ParseInput = {
 
 export function WeeklyStatementUpload() {
   const { data, insert } = useData();
+  const { userId: authUserId } = useAuth();
   const ingestDoc = useDocumentIngest();
   const [state, setState] = useState<State>({ kind: "idle" });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,8 +43,7 @@ export function WeeklyStatementUpload() {
 
   async function handle(input: ParseInput) {
     setState({ kind: "busy" });
-    let textContent = input.textContent;
-    const { result, docId } = await ingestDoc({ ...input, textContent });
+    const { result, docId } = await ingestDoc({ ...input, textContent: input.textContent });
 
     // Low confidence or not a statement → leave it for the review queue.
     if (result.needsReview || result.documentType !== "weekly_statement") {
@@ -59,7 +60,7 @@ export function WeeklyStatementUpload() {
     const wsId = phvStreamId();
     const accId = payoutAccountId();
     const now = new Date().toISOString();
-    const userId = data.profile?.id ?? DEMO_USER_ID;
+    const userId = data.profile?.id ?? authUserId ?? "";
 
     const base = (over: Partial<Transaction>): Transaction => ({
       id: genId("t"),
@@ -129,9 +130,7 @@ export function WeeklyStatementUpload() {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-4 w-4" /> Weekly operator statement
-        </CardTitle>
+        <SectionTitle icon={FileText}>Weekly operator statement</SectionTitle>
         <Badge variant="muted">PHV</Badge>
       </CardHeader>
       <CardContent>

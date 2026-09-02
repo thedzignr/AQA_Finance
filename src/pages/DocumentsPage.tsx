@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
+  Camera,
   FileImage,
   FileSpreadsheet,
   FileText,
@@ -8,6 +9,8 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
+import { InboundMailboxCard } from "@/components/shared/InboundMailboxCard";
+import { inboundMailbox } from "@/lib/inboundMailbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -21,13 +24,14 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import {
   ConfidenceBadge,
   ProcessingBadge,
+  SourceBadge,
 } from "@/components/shared/StatusBadges";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Money } from "@/components/shared/Money";
 import { useData } from "@/data/DataProvider";
 import { useDocumentIngest, uniqueFileName } from "@/data/useIngest";
 import { mockBankCsv, type ParseInput } from "@/lib/parsing";
-import { titleCase } from "@/lib/utils";
+import { cn, titleCase } from "@/lib/utils";
 import type { DocumentRecord, Extraction } from "@/types/domain";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -71,6 +75,7 @@ export function DocumentsPage() {
   const [busy, setBusy] = useState(false);
   const [openDoc, setOpenDoc] = useState<DocumentRecord | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const extractionByDoc = useMemo(() => {
     const map = new Map<string, Extraction>();
@@ -103,27 +108,71 @@ export function DocumentsPage() {
     }
   }
 
+  function onPicker(files: FileList | null, input: HTMLInputElement | null) {
+    void onFiles(files);
+    if (input) input.value = "";
+  }
+
   const docs = [...data.documents].sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <PageHeader
         title="Documents"
-        description="Upload receipts, invoices, weekly statements, bank CSVs, screenshots and PDFs. They’re auto-classified, parsed and routed for review when uncertain."
+        icon={FileText}
+        description="Upload receipts, invoices, weekly statements, bank CSVs, screenshots and PDFs — or send them to the receipts inbox. They’re auto-classified, parsed and routed for review when uncertain."
       />
 
-      {/* Upload zone */}
-      <Card>
-        <CardContent className="p-5">
+      <Card className="shadow-neon">
+        <CardContent className="p-4 md:p-5">
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              className="h-14 text-base"
+              disabled={busy}
+              onClick={() => cameraRef.current?.click()}
+            >
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+              Take photo
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 text-base shadow-neon-cyan"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="h-5 w-5" />
+              Upload
+            </Button>
+          </div>
+          <p className="mt-2 text-center text-xs text-muted-foreground md:hidden">
+            Point at a receipt, parking ticket or invoice. It goes to Review.
+          </p>
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => onPicker(e.target.files, e.target)}
+          />
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.heic,.pdf,.csv,image/*,application/pdf,text/csv"
+            className="hidden"
+            onChange={(e) => onPicker(e.target.files, e.target)}
+          />
+
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               void onFiles(e.dataTransfer.files);
             }}
-            className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed py-10 text-center"
+            className="mt-4 hidden flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed py-10 text-center md:flex"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 shadow-neon">
               {busy ? (
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               ) : (
@@ -131,25 +180,14 @@ export function DocumentsPage() {
               )}
             </div>
             <div>
-              <p className="font-medium">Drop files here or click to upload</p>
+              <p className="font-medium">Or drop files here</p>
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, HEIC, PDF or CSV · OCR for images & scans, direct parsing for text PDFs/CSVs
+                JPG, PNG, HEIC, PDF or CSV · parsed and sent to Review when uncertain
               </p>
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept=".jpg,.jpeg,.png,.heic,.pdf,.csv,image/*,application/pdf,text/csv"
-              className="hidden"
-              onChange={(e) => void onFiles(e.target.files)}
-            />
-            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <Upload className="h-4 w-4" /> Choose files
-            </Button>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 hidden md:block">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" /> Try a sample (mock adapters)
             </p>
@@ -170,9 +208,27 @@ export function DocumentsPage() {
         </CardContent>
       </Card>
 
+      <details className="rounded-[1.25rem] bg-card p-4 shadow-card md:hidden">
+        <summary className="cursor-pointer text-sm font-medium">Email receipts instead</summary>
+        <div className="pt-3">
+          <InboundMailboxCard compact embedded />
+        </div>
+      </details>
+      <div className="hidden md:block">
+        <InboundMailboxCard />
+      </div>
+
       {/* Inbox */}
       {docs.length === 0 ? (
-        <EmptyState icon={FileText} title="No documents yet" description="Upload a file or try a sample to see the parsing pipeline in action." />
+        <EmptyState
+          icon={FileText}
+          title="No documents yet"
+          description={
+            inboundMailbox()
+              ? `Take a photo, upload a file, or send a receipt to ${inboundMailbox()}.`
+              : "Take a photo or upload a file — it is parsed and sent to Review when uncertain."
+          }
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((doc) => {
@@ -195,7 +251,10 @@ export function DocumentsPage() {
                         </p>
                       </div>
                     </div>
-                    <ProcessingBadge value={doc.processing_status} />
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <ProcessingBadge value={doc.processing_status} />
+                      <SourceBadge value={doc.source_type} />
+                    </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <ConfidenceBadge value={doc.parsing_confidence} />
@@ -253,7 +312,9 @@ function DocumentDialog({
         <DialogHeader>
           <DialogTitle>{doc.file_name}</DialogTitle>
           <DialogDescription>
-            {titleCase(doc.document_type)} · extracted by {extraction?.extractor_version ?? "—"}
+            {titleCase(doc.document_type)}
+            {doc.source_type === "email" ? " · inbound email" : ""} · extracted by{" "}
+            {extraction?.extractor_version ?? "—"}
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[60vh] gap-4 overflow-y-auto md:grid-cols-2">
@@ -267,6 +328,20 @@ function DocumentDialog({
               <Row label="Period" value={n?.statement_period_start ? `${n.statement_period_start} → ${n.statement_period_end}` : "—"} />
               <Row label="Work stream hint" value={n?.work_stream_hint ?? "—"} />
               <Row label="Suggested category" value={n?.suggested_category_code ?? "—"} />
+              {doc.source_type === "email" && (
+                <>
+                  <Row
+                    label="From"
+                    value={String(extraction?.raw_json?.email_from ?? "—")}
+                    plain
+                  />
+                  <Row
+                    label="Subject"
+                    value={String(extraction?.raw_json?.email_subject ?? "—")}
+                    plain
+                  />
+                </>
+              )}
             </dl>
             {n?.transactions && n.transactions.length > 0 && (
               <div className="mt-2">
@@ -296,11 +371,11 @@ function DocumentDialog({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, plain }: { label: string; value: string; plain?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2 border-b py-1">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium capitalize">{value}</dd>
+      <dd className={cn("text-right font-medium", !plain && "capitalize")}>{value}</dd>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { IconWell } from "@/components/shared/IconWell";
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
@@ -13,10 +14,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-        <Icon className="h-6 w-6 text-muted-foreground" />
-      </div>
+    <div className="flex flex-col items-center justify-center gap-3 rounded-[1.25rem] bg-card py-12 text-center shadow-card">
+      <IconWell icon={icon} variant="accent" size="lg" />
       <div>
         <p className="font-medium">{title}</p>
         {description && (

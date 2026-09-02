@@ -3,16 +3,13 @@ import type { Database } from "@/types/supabase";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-const backend = (import.meta.env.VITE_DATA_BACKEND as string | undefined) ?? "mock";
 
-export const isSupabaseConfigured = Boolean(
-  url && anonKey && backend === "supabase",
-);
+/** The app is Supabase-backed; it's "configured" once a URL + anon key exist. */
+export const isSupabaseConfigured = Boolean(url && anonKey);
 
 /**
- * Returns a typed Supabase client, or null when the app is running in the
- * default offline "mock" mode. Keeping this lazy means the bundle works with no
- * environment configured at all.
+ * Returns a typed Supabase client, or null when no Supabase project is
+ * configured (in which case the app shows a "connect Supabase" screen).
  */
 let client: SupabaseClient<Database> | null = null;
 export function getSupabase(): SupabaseClient<Database> | null {
@@ -24,5 +21,3 @@ export function getSupabase(): SupabaseClient<Database> | null {
   }
   return client;
 }
-
-export const dataBackend = isSupabaseConfigured ? "supabase" : "mock";

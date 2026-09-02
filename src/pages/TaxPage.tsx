@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { AlertTriangle, Download, FileCheck2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Banknote, Car, Download, FileCheck2, Percent, Receipt, ReceiptText, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -13,35 +13,62 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SectionTitle } from "@/components/shared/IconWell";
 import { StatCard } from "@/components/shared/StatCard";
 import { Money } from "@/components/shared/Money";
 import { useData } from "@/data/DataProvider";
 import {
+  estimateCorporationTax,
   estimateSelfEmployedTax,
+  isLimitedCompany,
   taxYearSummary,
+  vatSummary,
+  ytdMileageAllowance,
 } from "@/lib/selectors";
+import { COMPANY } from "@/lib/company";
 import { formatGBP, formatPct } from "@/lib/utils";
 
 export function TaxPage() {
   const { data, categoryById } = useData();
   const summary = useMemo(() => taxYearSummary(data, "2025/26"), [data]);
+  const ltd = useMemo(() => isLimitedCompany(data), [data]);
   const taxEst = useMemo(
     () => estimateSelfEmployedTax(summary.estimatedProfit),
     [summary.estimatedProfit],
   );
+  const corpTax = useMemo(
+    () => estimateCorporationTax(summary.estimatedProfit),
+    [summary.estimatedProfit],
+  );
+  const vat = useMemo(
+    () => vatSummary(data, summary.start, summary.end),
+    [data, summary.start, summary.end],
+  );
+  const mileage = useMemo(() => ytdMileageAllowance(data), [data]);
 
   function exportCsv() {
     const lines: string[] = [];
-    lines.push(`AQA Finance — Sole Trader Summary,${summary.taxYear}`);
+    lines.push(`${COMPANY.legalName} — ${ltd ? "Limited company" : "Sole trader"} summary,${summary.taxYear}`);
     lines.push(`Period,${summary.start} to ${summary.end}`);
     lines.push("");
     lines.push("Totals");
     lines.push(`Total income,${summary.totalIncome.toFixed(2)}`);
     lines.push(`Total allowable expenses,${summary.totalAllowableExpenses.toFixed(2)}`);
     lines.push(`Estimated profit,${summary.estimatedProfit.toFixed(2)}`);
-    lines.push(`Estimated income tax,${taxEst.incomeTax.toFixed(2)}`);
-    lines.push(`Estimated Class 4 NIC,${taxEst.class4.toFixed(2)}`);
-    lines.push(`Estimated total tax,${taxEst.total.toFixed(2)}`);
+    if (ltd) {
+      lines.push(`Estimated corporation tax,${corpTax.tax.toFixed(2)}`);
+      lines.push(`CT effective rate %,${corpTax.effectiveRate.toFixed(2)}`);
+      if (vat.vatRegistered) {
+        lines.push(`Output VAT,${vat.outputVat.toFixed(2)}`);
+        lines.push(`VAT scheme,${vat.scheme}`);
+      }
+    } else {
+      lines.push(`Estimated income tax,${taxEst.incomeTax.toFixed(2)}`);
+      lines.push(`Estimated Class 4 NIC,${taxEst.class4.toFixed(2)}`);
+      lines.push(`Estimated total tax,${taxEst.total.toFixed(2)}`);
+    }
+    lines.push(`YTD miles,${mileage.miles.toFixed(1)}`);
+    lines.push(`HMRC mileage allowance,${mileage.allowance.toFixed(2)}`);
     lines.push("");
     lines.push("By work stream,Income,Expenses,Net");
     for (const w of summary.byWorkStream) {
@@ -69,7 +96,12 @@ export function TaxPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tax & Records"
-        description={`UK sole trader records for tax year ${summary.taxYear} (${summary.start} to ${summary.end}). Estimates only — not a substitute for an accountant.`}
+        icon={ReceiptText}
+        description={
+          ltd
+            ? `Company records for ${summary.taxYear} (${summary.start} to ${summary.end}). Corporation tax and VAT figures are indicative — confirm with your accountant.`
+            : `UK sole trader records for tax year ${summary.taxYear} (${summary.start} to ${summary.end}). Estimates only — not a substitute for an accountant.`
+        }
         actions={
           <Button onClick={exportCsv}>
             <Download className="h-4 w-4" /> Export summary (CSV)
@@ -82,9 +114,9 @@ export function TaxPage() {
         <StatCard label="Allowable expenses" value={formatGBP(summary.totalAllowableExpenses)} accent="destructive" />
         <StatCard label="Estimated profit" value={formatGBP(summary.estimatedProfit)} accent="primary" />
         <StatCard
-          label="Estimated tax"
-          value={formatGBP(taxEst.total)}
-          hint={`~${formatPct(taxEst.effectiveRate, 1)} effective`}
+          label={ltd ? "Estimated CT" : "Estimated tax"}
+          value={formatGBP(ltd ? corpTax.tax : taxEst.total)}
+          hint={`~${formatPct(ltd ? corpTax.effectiveRate : taxEst.effectiveRate, 1)} effective`}
           accent="warning"
         />
       </div>
@@ -93,9 +125,7 @@ export function TaxPage() {
         {/* Evidence coverage */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-primary" /> Evidence coverage
-            </CardTitle>
+            <SectionTitle icon={ShieldCheck}>Evidence coverage</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-end justify-between">
@@ -117,27 +147,36 @@ export function TaxPage() {
         {/* Tax estimate breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileCheck2 className="h-4 w-4" /> Estimated liability
-            </CardTitle>
+            <SectionTitle icon={FileCheck2}>Estimated liability</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Line label="Income tax" value={taxEst.incomeTax} />
-            <Line label="Class 4 NIC" value={taxEst.class4} />
-            <div className="my-1 border-t" />
-            <Line label="Total" value={taxEst.total} bold />
-            <p className="pt-1 text-xs text-muted-foreground">
-              Based on 2025/26 rates and a £12,570 personal allowance. Class 2 NIC and payments on account not included.
-            </p>
+            {ltd ? (
+              <>
+                <Line label="Taxable profit" value={summary.estimatedProfit} />
+                <Line label="Corporation tax" value={corpTax.tax} bold />
+                <p className="pt-1 text-xs text-muted-foreground">
+                  2025/26 rates: 19% on profits up to £50k, 25% above £250k, marginal relief between.
+                  Due nine months after year-end. Does not include PAYE or dividend tax.
+                </p>
+              </>
+            ) : (
+              <>
+                <Line label="Income tax" value={taxEst.incomeTax} />
+                <Line label="Class 4 NIC" value={taxEst.class4} />
+                <div className="my-1 border-t" />
+                <Line label="Total" value={taxEst.total} bold />
+                <p className="pt-1 text-xs text-muted-foreground">
+                  Based on 2025/26 rates and a £12,570 personal allowance. Class 2 NIC and payments on account not included.
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         {/* Missing evidence */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" /> Missing evidence
-            </CardTitle>
+            <SectionTitle icon={AlertTriangle} variant="warning">Missing evidence</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {summary.taxRelevantWithoutEvidence.length === 0 ? (
@@ -154,10 +193,69 @@ export function TaxPage() {
         </Card>
       </div>
 
+      {ltd && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <SectionTitle icon={Percent}>VAT</SectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {vat.vatRegistered ? (
+                <>
+                  <Line label="Net supplies" value={vat.outputNet} />
+                  <Line label="Output VAT" value={vat.outputVat} bold />
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    Scheme: {vat.scheme.replace("_", " ")}. Cash accounting uses paid invoices;
+                    standard uses issue date. Input VAT from receipts is not auto-calculated yet.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Not VAT registered. Turn it on in Settings when you cross the threshold or register.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <SectionTitle icon={Car}>Mileage (HMRC AMAP)</SectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Miles this year</span>
+                <span className="tnum">{mileage.miles.toFixed(0)}</span>
+              </div>
+              <Line label="Tax-free allowance" value={mileage.allowance} bold />
+              <p className="pt-1 text-xs text-muted-foreground">
+                45p for the first 10,000 business miles, 25p after. Log miles on the Work log.
+                {mileage.remainingAtHigh > 0
+                  ? ` ${mileage.remainingAtHigh.toFixed(0)} miles still at 45p.`
+                  : " You are now in the 25p band."}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <SectionTitle icon={UserRound}>Paying yourself</SectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                The company pays corporation tax on its profits. You typically take a modest PAYE
+                salary (ledger category Director salary) and the rest as dividends (Director dividend).
+              </p>
+              <p>
+                Salary is a company expense; dividends are not. Record both in the ledger so profit
+                and the tax pot stay honest.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Work stream summary */}
       <Card>
         <CardHeader>
-          <CardTitle>Work-stream summary ({summary.taxYear})</CardTitle>
+          <SectionTitle icon={Banknote}>Work-stream summary ({summary.taxYear})</SectionTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -186,7 +284,7 @@ export function TaxPage() {
       {/* Tax-relevant ledger */}
       <Card>
         <CardHeader>
-          <CardTitle>Tax-relevant transactions</CardTitle>
+          <SectionTitle icon={Receipt}>Tax-relevant transactions</SectionTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
