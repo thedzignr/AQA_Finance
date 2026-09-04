@@ -25,7 +25,7 @@ import { IconWell } from "@/components/shared/IconWell";
 import { StatCard } from "@/components/shared/StatCard";
 import { useData } from "@/data/DataProvider";
 import { accountBalance } from "@/lib/selectors";
-import { daysUntil, formatGBP, genId, titleCase } from "@/lib/utils";
+import { daysUntil, formatGBP, genId } from "@/lib/utils";
 import { useAuth } from "@/data/auth";
 import type { Account, AccountType } from "@/types/domain";
 
@@ -263,9 +263,9 @@ function AccountDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.keys(TYPE_LABELS).map((k) => (
+                  {(Object.keys(TYPE_LABELS) as AccountType[]).map((k) => (
                     <SelectItem key={k} value={k}>
-                      {titleCase(k)}
+                      {TYPE_LABELS[k]}
                     </SelectItem>
                   ))}
                 </SelectContent>
