@@ -186,7 +186,7 @@ function CompanySettingsCard() {
       next_invoice_number: Number(form.next_invoice_number) || 1,
       quote_prefix: form.quote_prefix || "QTE",
       next_quote_number: Number(form.next_quote_number) || 1,
-      default_payment_terms_days: Number(form.default_payment_terms_days) || 14,
+      default_payment_terms_days: existing?.default_payment_terms_days ?? 14,
       default_quote_valid_days: Number(form.default_quote_valid_days) || 30,
       invoice_footer: form.invoice_footer || null,
       accounting_year_end_month: Number(form.accounting_year_end_month) || 3,
@@ -390,14 +390,6 @@ function CompanySettingsCard() {
               min={1}
               value={form.next_quote_number ?? 1}
               onChange={(e) => set("next_quote_number", parseInt(e.target.value, 10) || 1)}
-            />
-          </Field>
-          <Field label="Payment terms (days)">
-            <Input
-              type="number"
-              min={0}
-              value={form.default_payment_terms_days ?? 14}
-              onChange={(e) => set("default_payment_terms_days", parseInt(e.target.value, 10) || 0)}
             />
           </Field>
           <Field label="Quote valid (days)">

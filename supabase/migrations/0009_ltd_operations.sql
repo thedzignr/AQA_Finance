@@ -5,29 +5,46 @@
 -- and a work log covering freelance hours, trade-plate shifts, PHV driving and
 -- mileage. Line items live as jsonb on quotes/invoices so the existing generic
 -- repository can CRUD them without nested child tables.
+--
+-- Idempotent: safe to re-run in the SQL editor.
 -- =============================================================================
 
 -- ----------------------------------------------------------------------------
 -- Enums
 -- ----------------------------------------------------------------------------
-create type entity_type as enum ('sole_trader', 'limited_company');
+do $$ begin
+  create type entity_type as enum ('sole_trader', 'limited_company');
+exception when duplicate_object then null;
+end $$;
 
-create type vat_scheme as enum
-  ('none', 'standard', 'flat_rate', 'cash_accounting');
+do $$ begin
+  create type vat_scheme as enum
+    ('none', 'standard', 'flat_rate', 'cash_accounting');
+exception when duplicate_object then null;
+end $$;
 
-create type quote_status as enum
-  ('draft', 'sent', 'accepted', 'declined', 'expired', 'converted');
+do $$ begin
+  create type quote_status as enum
+    ('draft', 'sent', 'accepted', 'declined', 'expired', 'converted');
+exception when duplicate_object then null;
+end $$;
 
-create type invoice_status as enum
-  ('draft', 'sent', 'paid', 'part_paid', 'void');
+do $$ begin
+  create type invoice_status as enum
+    ('draft', 'sent', 'paid', 'part_paid', 'void');
+exception when duplicate_object then null;
+end $$;
 
-create type work_entry_type as enum
-  ('shift', 'hours', 'job', 'mileage', 'piece');
+do $$ begin
+  create type work_entry_type as enum
+    ('shift', 'hours', 'job', 'mileage', 'piece');
+exception when duplicate_object then null;
+end $$;
 
 -- ----------------------------------------------------------------------------
 -- company_profiles  (one row per user)
 -- ----------------------------------------------------------------------------
-create table company_profiles (
+create table if not exists company_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references auth.users (id) on delete cascade,
   entity_type entity_type not null default 'limited_company',
@@ -58,12 +75,12 @@ create table company_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index company_profiles_user_id_idx on company_profiles (user_id);
+create index if not exists company_profiles_user_id_idx on company_profiles (user_id);
 
 -- ----------------------------------------------------------------------------
 -- clients
 -- ----------------------------------------------------------------------------
-create table clients (
+create table if not exists clients (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
@@ -78,13 +95,13 @@ create table clients (
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index clients_user_id_idx on clients (user_id);
-create index clients_user_active_idx on clients (user_id, active);
+create index if not exists clients_user_id_idx on clients (user_id);
+create index if not exists clients_user_active_idx on clients (user_id, active);
 
 -- ----------------------------------------------------------------------------
 -- quotes
 -- ----------------------------------------------------------------------------
-create table quotes (
+create table if not exists quotes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   client_id uuid references clients (id) on delete set null,
@@ -104,14 +121,14 @@ create table quotes (
   updated_at timestamptz not null default now(),
   unique (user_id, number)
 );
-create index quotes_user_id_idx on quotes (user_id);
-create index quotes_status_idx on quotes (user_id, status);
-create index quotes_client_idx on quotes (client_id);
+create index if not exists quotes_user_id_idx on quotes (user_id);
+create index if not exists quotes_status_idx on quotes (user_id, status);
+create index if not exists quotes_client_idx on quotes (client_id);
 
 -- ----------------------------------------------------------------------------
 -- invoices
 -- ----------------------------------------------------------------------------
-create table invoices (
+create table if not exists invoices (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   client_id uuid references clients (id) on delete set null,
@@ -134,15 +151,15 @@ create table invoices (
   updated_at timestamptz not null default now(),
   unique (user_id, number)
 );
-create index invoices_user_id_idx on invoices (user_id);
-create index invoices_status_idx on invoices (user_id, status);
-create index invoices_client_idx on invoices (client_id);
-create index invoices_due_date_idx on invoices (user_id, due_date);
+create index if not exists invoices_user_id_idx on invoices (user_id);
+create index if not exists invoices_status_idx on invoices (user_id, status);
+create index if not exists invoices_client_idx on invoices (client_id);
+create index if not exists invoices_due_date_idx on invoices (user_id, due_date);
 
 -- ----------------------------------------------------------------------------
 -- work_entries  (shifts, hours, mileage, piece work)
 -- ----------------------------------------------------------------------------
-create table work_entries (
+create table if not exists work_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   work_stream_id uuid references work_streams (id) on delete set null,
@@ -165,10 +182,10 @@ create table work_entries (
   notes text,
   created_at timestamptz not null default now()
 );
-create index work_entries_user_id_idx on work_entries (user_id);
-create index work_entries_occurred_idx on work_entries (user_id, occurred_on desc);
-create index work_entries_stream_idx on work_entries (work_stream_id);
-create index work_entries_unbilled_idx on work_entries (user_id, billable, invoiced);
+create index if not exists work_entries_user_id_idx on work_entries (user_id);
+create index if not exists work_entries_occurred_idx on work_entries (user_id, occurred_on desc);
+create index if not exists work_entries_stream_idx on work_entries (work_stream_id);
+create index if not exists work_entries_unbilled_idx on work_entries (user_id, billable, invoiced);
 
 -- ----------------------------------------------------------------------------
 -- RLS
@@ -187,6 +204,10 @@ declare
   ];
 begin
   foreach t in array owner_tables loop
+    execute format('drop policy if exists %I on %I;', t || '_select_own', t);
+    execute format('drop policy if exists %I on %I;', t || '_insert_own', t);
+    execute format('drop policy if exists %I on %I;', t || '_update_own', t);
+    execute format('drop policy if exists %I on %I;', t || '_delete_own', t);
     execute format(
       'create policy %I on %I for select using (auth.uid() = user_id);',
       t || '_select_own', t);
@@ -214,3 +235,5 @@ insert into transaction_categories (user_id, kind, name, code, sort_order) value
   (null, 'expense',  'Employer NI / PAYE',          'exp_paye',      228),
   (null, 'transfer', 'Director dividend',           'tr_dividend',   505)
 on conflict do nothing;
+
+notify pgrst, 'reload schema';
