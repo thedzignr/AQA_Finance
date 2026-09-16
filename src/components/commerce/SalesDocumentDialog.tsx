@@ -32,7 +32,7 @@ import {
   DEFAULT_INVOICE_DUE_DAYS,
 } from "@/lib/commerce";
 import { addDaysISO, newId, todayISO } from "@/lib/utils";
-import { companyProfile } from "@/lib/selectors";
+import { clientLabel, companyProfile } from "@/lib/selectors";
 
 export interface SalesDocumentDefaults {
   client_id?: string | null;
@@ -268,7 +268,7 @@ export function SalesDocumentDialog({
                 <SelectItem value="none">No client</SelectItem>
                 {clients.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name}
+                    {clientLabel(c)}
                   </SelectItem>
                 ))}
               </SelectContent>

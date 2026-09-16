@@ -480,6 +480,17 @@ export function companyProfile(data: Dataset): CompanyProfile | undefined {
   return data.companyProfiles[0];
 }
 
+/** Company name when set, otherwise the client name. */
+export function clientLabel(
+  client: Pick<Client, "name" | "company_name"> | null | undefined,
+): string {
+  if (!client) return "—";
+  const company = client.company_name?.trim();
+  const person = client.name?.trim();
+  if (company && person && company !== person) return `${company} · ${person}`;
+  return company || person || "—";
+}
+
 export interface SalesSummary {
   outstanding: number;
   overdue: number;

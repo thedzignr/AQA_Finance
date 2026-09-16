@@ -98,8 +98,16 @@ export function PrintDocumentPage({ kind }: { kind: "invoice" | "quote" }) {
         <section className="mt-6 grid gap-6 sm:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Bill to</p>
-            <p className="mt-1 font-medium">{client?.name ?? "—"}</p>
-            {client?.contact_name && <p className="text-sm">{client.contact_name}</p>}
+            {client?.company_name?.trim() ? (
+              <>
+                <p className="mt-1 font-medium">{client.company_name.trim()}</p>
+                {client.name.trim() && client.name.trim() !== client.company_name.trim() && (
+                  <p className="text-sm">{client.name}</p>
+                )}
+              </>
+            ) : (
+              <p className="mt-1 font-medium">{client?.name ?? "—"}</p>
+            )}
             {client?.address && (
               <p className="whitespace-pre-line text-sm text-neutral-600">{client.address}</p>
             )}

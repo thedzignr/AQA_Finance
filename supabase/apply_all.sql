@@ -987,6 +987,7 @@ create table if not exists clients (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
+  company_name text,
   contact_name text,
   email text,
   phone text,
@@ -1138,5 +1139,13 @@ insert into transaction_categories (user_id, kind, name, code, sort_order) value
   (null, 'expense',  'Employer NI / PAYE',          'exp_paye',      228),
   (null, 'transfer', 'Director dividend',           'tr_dividend',   505)
 on conflict do nothing;
+
+notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0010_client_company_name.sql
+-- ============================================================
+
+alter table clients add column if not exists company_name text;
 
 notify pgrst, 'reload schema';

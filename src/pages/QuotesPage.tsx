@@ -25,7 +25,7 @@ import { Money } from "@/components/shared/Money";
 import { QuoteStatusBadge } from "@/components/shared/StatusBadges";
 import { SalesDocumentDialog } from "@/components/commerce/SalesDocumentDialog";
 import { useData } from "@/data/DataProvider";
-import { salesSummary } from "@/lib/selectors";
+import { clientLabel, salesSummary } from "@/lib/selectors";
 import { normaliseLineItems, quoteDisplayStatus } from "@/lib/commerce";
 import { formatGBP, formatShortDate } from "@/lib/utils";
 import type { Invoice, Quote, QuoteStatus } from "@/types/domain";
@@ -115,7 +115,7 @@ export function QuotesPage() {
                   return (
                     <TableRow key={q.id}>
                       <TableCell className="font-medium">{q.number}</TableCell>
-                      <TableCell>{clientById(q.client_id)?.name ?? "—"}</TableCell>
+                      <TableCell>{clientLabel(clientById(q.client_id))}</TableCell>
                       <TableCell className="text-muted-foreground">{formatShortDate(q.issue_date)}</TableCell>
                       <TableCell className="text-muted-foreground">{formatShortDate(q.valid_until)}</TableCell>
                       <TableCell>

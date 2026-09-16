@@ -47,7 +47,9 @@ export function ClientsPage() {
     return [...data.clients]
       .filter((c) => {
         if (!q) return true;
-        return `${c.name} ${c.contact_name ?? ""} ${c.email ?? ""}`.toLowerCase().includes(q);
+        return `${c.name} ${c.company_name ?? ""} ${c.contact_name ?? ""} ${c.email ?? ""}`
+          .toLowerCase()
+          .includes(q);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [data.clients, query]);
@@ -113,9 +115,11 @@ export function ClientsPage() {
                     <div className="flex min-w-0 items-start gap-3">
                       <IconWell icon={UserRound} size="sm" variant={c.active ? "accent" : "muted"} />
                       <div className="min-w-0">
-                        <p className="font-medium">{c.name}</p>
+                        <p className="font-medium">{c.company_name?.trim() || c.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {c.contact_name || c.email || "No contact yet"}
+                          {c.company_name?.trim() && c.name.trim() && c.name.trim() !== c.company_name.trim()
+                            ? c.name
+                            : c.email || c.contact_name || "No email yet"}
                         </p>
                       </div>
                     </div>
@@ -187,6 +191,7 @@ function ClientDialog({
   const { data, insert, update } = useData();
   const { userId } = useAuth();
   const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -200,6 +205,7 @@ function ClientDialog({
   if (open && seeded !== (client?.id ?? "new")) {
     setSeeded(client?.id ?? "new");
     setName(client?.name ?? "");
+    setCompanyName(client?.company_name ?? "");
     setContact(client?.contact_name ?? "");
     setEmail(client?.email ?? "");
     setPhone(client?.phone ?? "");
@@ -211,10 +217,13 @@ function ClientDialog({
   }
 
   async function save() {
-    if (!userId || !name.trim()) return;
+    if (!userId || (!name.trim() && !companyName.trim())) return;
     setError(null);
+    const clientName = name.trim();
+    const company = companyName.trim();
     const payload = {
-      name: name.trim(),
+      name: clientName || company,
+      company_name: company || null,
       contact_name: contact.trim() || null,
       email: email.trim() || null,
       phone: phone.trim() || null,
@@ -257,13 +266,21 @@ function ClientDialog({
           <DialogTitle>{isEdit ? "Edit client" : "Add client"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Company or person" />
+          <div className="space-y-1.5">
+            <Label>Client name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Person you deal with"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label>Contact</Label>
-            <Input value={contact} onChange={(e) => setContact(e.target.value)} />
+            <Label>Company name</Label>
+            <Input
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Company you bill"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
@@ -307,7 +324,7 @@ function ClientDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={!name.trim()}>
+          <Button onClick={() => void save()} disabled={!name.trim() && !companyName.trim()}>
             {isEdit ? "Save" : "Add client"}
           </Button>
         </DialogFooter>

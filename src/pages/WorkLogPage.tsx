@@ -31,7 +31,7 @@ import { Money } from "@/components/shared/Money";
 import { SalesDocumentDialog } from "@/components/commerce/SalesDocumentDialog";
 import { useData } from "@/data/DataProvider";
 import { useAuth } from "@/data/auth";
-import { thisWeekHoursByDay, thisWeekWorkLog, ytdMileageAllowance } from "@/lib/selectors";
+import { thisWeekHoursByDay, thisWeekWorkLog, ytdMileageAllowance, clientLabel } from "@/lib/selectors";
 import {
   defaultBillableForStream,
   defaultEntryTypeForStream,
@@ -167,6 +167,7 @@ export function WorkLogPage() {
               <TableBody>
                 {entries.map((e) => {
                   const ws = workStreamById(e.work_stream_id);
+                  const client = clientById(e.client_id);
                   return (
                     <TableRow key={e.id}>
                       <TableCell>
@@ -183,7 +184,7 @@ export function WorkLogPage() {
                       <TableCell>
                         <p className="font-medium">{e.description || e.entry_type}</p>
                         <p className="text-xs text-muted-foreground">
-                          {clientById(e.client_id)?.name ?? e.operator ?? e.entry_type}
+                          {client ? clientLabel(client) : e.operator ?? e.entry_type}
                           {e.billable && !e.invoiced && " · billable"}
                           {e.invoiced && " · invoiced"}
                         </p>
@@ -422,7 +423,7 @@ function QuickAdd() {
                   <SelectItem value="none">No client</SelectItem>
                   {data.clients.filter((c) => c.active).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}
+                      {clientLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -42,7 +42,7 @@ import { InvoiceStatusBadge } from "@/components/shared/StatusBadges";
 import { SalesDocumentDialog } from "@/components/commerce/SalesDocumentDialog";
 import { useData } from "@/data/DataProvider";
 import { useAuth } from "@/data/auth";
-import { salesSummary } from "@/lib/selectors";
+import { clientLabel, salesSummary } from "@/lib/selectors";
 import { invoiceBalance, invoiceDisplayStatus } from "@/lib/commerce";
 import { formatGBP, formatShortDate, newId, todayISO } from "@/lib/utils";
 import type { Invoice, Transaction } from "@/types/domain";
@@ -92,7 +92,7 @@ export function InvoicesPage() {
       posted_date: date,
       kind: "income",
       ownership_type: "business",
-      counterparty: client?.name ?? null,
+      counterparty: client ? clientLabel(client) : null,
       description: `Invoice ${invoice.number}`,
       amount,
       direction: "inflow",
@@ -189,7 +189,7 @@ export function InvoicesPage() {
                   return (
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.number}</TableCell>
-                      <TableCell>{clientById(inv.client_id)?.name ?? "—"}</TableCell>
+                      <TableCell>{clientLabel(clientById(inv.client_id))}</TableCell>
                       <TableCell className="text-muted-foreground">{formatShortDate(inv.issue_date)}</TableCell>
                       <TableCell className="text-muted-foreground">{formatShortDate(inv.due_date)}</TableCell>
                       <TableCell>

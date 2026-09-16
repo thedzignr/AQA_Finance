@@ -486,6 +486,7 @@ export interface Client {
   id: string;
   user_id: string;
   name: string;
+  company_name: string | null;
   contact_name: string | null;
   email: string | null;
   phone: string | null;
