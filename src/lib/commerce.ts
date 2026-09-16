@@ -142,13 +142,7 @@ export function defaultBillableForStream(code: WorkStreamCode | undefined): bool
   return code === "design" || code === "freelance";
 }
 
-export function paymentTermsDays(
-  company: CompanyProfile | null | undefined,
-  clientDays: number | null | undefined,
-): number {
-  if (clientDays != null && clientDays > 0) return clientDays;
-  return company?.default_payment_terms_days ?? 14;
-}
+export const DEFAULT_INVOICE_DUE_DAYS = 14;
 
 export function defaultInvoiceFooter(company: CompanyProfile | null | undefined): string {
   if (company?.invoice_footer) return company.invoice_footer;

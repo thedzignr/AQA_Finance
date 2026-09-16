@@ -193,7 +193,6 @@ function ClientDialog({
   const [address, setAddress] = useState("");
   const [vat, setVat] = useState("");
   const [stream, setStream] = useState("none");
-  const [terms, setTerms] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(client);
@@ -207,7 +206,6 @@ function ClientDialog({
     setAddress(client?.address ?? "");
     setVat(client?.vat_number ?? "");
     setStream(client?.default_work_stream_id ?? "none");
-    setTerms(client?.payment_terms_days != null ? String(client.payment_terms_days) : "");
     setNotes(client?.notes ?? "");
     setError(null);
   }
@@ -223,7 +221,7 @@ function ClientDialog({
       address: address.trim() || null,
       vat_number: vat.trim() || null,
       default_work_stream_id: stream === "none" ? null : stream,
-      payment_terms_days: terms ? parseInt(terms, 10) : null,
+      payment_terms_days: null,
       notes: notes.trim() || null,
     };
     try {
@@ -283,7 +281,7 @@ function ClientDialog({
             <Label>Address</Label>
             <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label>Default work stream</Label>
             <Select value={stream} onValueChange={setStream}>
               <SelectTrigger>
@@ -298,16 +296,6 @@ function ClientDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Payment terms (days)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              placeholder="Company default"
-            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Notes</Label>

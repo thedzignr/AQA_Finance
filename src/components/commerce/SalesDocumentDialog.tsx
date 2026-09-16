@@ -29,7 +29,7 @@ import {
   emptyLineItem,
   formatDocNumber,
   normaliseLineItems,
-  paymentTermsDays,
+  DEFAULT_INVOICE_DUE_DAYS,
 } from "@/lib/commerce";
 import { addDaysISO, newId, todayISO } from "@/lib/utils";
 import { companyProfile } from "@/lib/selectors";
@@ -105,11 +105,7 @@ export function SalesDocumentDialog({
       setTerms(q?.terms ?? DEFAULT_QUOTE_TERMS);
     } else {
       const inv = document as Invoice | null | undefined;
-      const clientRow = data.clients.find((c) => c.id === (client === "none" ? null : client));
-      setDueDate(
-        inv?.due_date ??
-          addDaysISO(issue, paymentTermsDays(company, clientRow?.payment_terms_days)),
-      );
+      setDueDate(inv?.due_date ?? addDaysISO(issue, DEFAULT_INVOICE_DUE_DAYS));
       setTerms(inv?.terms ?? DEFAULT_INVOICE_TERMS);
     }
     // Seed once when the dialog opens so live typing isn't reset.
@@ -121,7 +117,7 @@ export function SalesDocumentDialog({
     const client = data.clients.find((c) => c.id === id);
     if (client?.default_work_stream_id) setWorkStreamId(client.default_work_stream_id);
     if (kind === "invoice" && !isEdit) {
-      setDueDate(addDaysISO(issueDate, paymentTermsDays(company, client?.payment_terms_days)));
+      setDueDate(addDaysISO(issueDate, DEFAULT_INVOICE_DUE_DAYS));
     }
   }
 
