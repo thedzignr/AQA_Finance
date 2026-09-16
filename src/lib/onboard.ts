@@ -1,6 +1,12 @@
 import { getSupabase } from "./supabase";
 import { COMPANY } from "./company";
-import type { CompanyProfile, OperatingCost, WorkStream } from "@/types/domain";
+import {
+  companyProfileFromUser,
+  defaultCompanyProfile,
+  isMissingRelationError,
+  saveCompanyProfileMeta,
+} from "./companyProfileStore";
+import type { OperatingCost, WorkStream } from "@/types/domain";
 
 /**
  * First-run cloud seed.
@@ -123,64 +129,41 @@ export async function ensureOnboarded(
     );
   }
 
-  try {
-    const { data: company } = await sb
-      .from("company_profiles")
-      .select("id, legal_name, trading_name, company_number")
-      .eq("user_id", userId)
-      .maybeSingle();
-    const now = new Date().toISOString();
-    if (!company) {
-      const row: Omit<CompanyProfile, "id"> & { id: string } = {
-        id: crypto.randomUUID(),
-        user_id: userId,
-        entity_type: "limited_company",
-        legal_name: COMPANY.legalName,
-        trading_name: COMPANY.tradingName,
-        company_number: COMPANY.companyNumber,
-        vat_registered: false,
-        vat_number: null,
-        vat_scheme: "none",
-        default_vat_rate: 0,
-        registered_address: null,
-        email: email,
-        phone: null,
-        website: null,
-        bank_name: null,
-        bank_sort_code: null,
-        bank_account_name: null,
-        bank_account_number: null,
-        invoice_prefix: "INV",
-        next_invoice_number: 1,
-        quote_prefix: "QTE",
-        next_quote_number: 1,
-        default_payment_terms_days: 14,
-        default_quote_valid_days: 30,
-        invoice_footer: null,
-        accounting_year_end_month: 3,
-        created_at: now,
-        updated_at: now,
-      };
-      await sb.from("company_profiles").insert(row as never);
-    } else {
-      const patch: Record<string, string> = {};
-      const row = company as {
-        id: string;
-        legal_name: string | null;
-        trading_name: string | null;
-        company_number: string | null;
-      };
-      if (!row.legal_name) patch.legal_name = COMPANY.legalName;
-      if (!row.trading_name) patch.trading_name = COMPANY.tradingName;
-      if (!row.company_number) patch.company_number = COMPANY.companyNumber;
-      if (Object.keys(patch).length > 0) {
-        await sb
-          .from("company_profiles")
-          .update({ ...patch, updated_at: now } as never)
-          .eq("id", row.id);
-      }
+  const { data: authData } = await sb.auth.getUser();
+  const { data: company, error: companyError } = await sb
+    .from("company_profiles")
+    .select("id, legal_name, trading_name, company_number")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const now = new Date().toISOString();
+  if (isMissingRelationError(companyError)) {
+    if (!companyProfileFromUser(authData.user)) {
+      await saveCompanyProfileMeta(defaultCompanyProfile(userId, email, now));
     }
-  } catch {
-    // LTD tables may not have been applied yet.
+    return;
+  }
+  if (!company) {
+    const row = defaultCompanyProfile(userId, email, now);
+    const { error: insertError } = await sb.from("company_profiles").insert(row as never);
+    if (isMissingRelationError(insertError)) {
+      await saveCompanyProfileMeta(row);
+    }
+  } else {
+    const patch: Record<string, string> = {};
+    const row = company as {
+      id: string;
+      legal_name: string | null;
+      trading_name: string | null;
+      company_number: string | null;
+    };
+    if (!row.legal_name) patch.legal_name = COMPANY.legalName;
+    if (!row.trading_name) patch.trading_name = COMPANY.tradingName;
+    if (!row.company_number) patch.company_number = COMPANY.companyNumber;
+    if (Object.keys(patch).length > 0) {
+      await sb
+        .from("company_profiles")
+        .update({ ...patch, updated_at: now } as never)
+        .eq("id", row.id);
+    }
   }
 }

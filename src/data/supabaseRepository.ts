@@ -1,3 +1,9 @@
+import {
+  COMPANY_PROFILE_META_KEY,
+  companyProfileFromUser,
+  isMissingRelationError,
+  saveCompanyProfileMeta,
+} from "@/lib/companyProfileStore";
 import { getSupabase } from "@/lib/supabase";
 import {
   COLLECTION_TABLE,
@@ -7,7 +13,7 @@ import {
   emptyDataset,
 } from "./dataset";
 import type { Repository } from "./repository";
-import type { Profile } from "@/types/domain";
+import type { CompanyProfile, Profile } from "@/types/domain";
 
 /**
  * Live Supabase backend. Relies on RLS to scope rows to the signed-in user, so
@@ -19,7 +25,10 @@ import type { Profile } from "@/types/domain";
  * and the typed client is still used for auth + profiles.
  */
 // Minimal query result shape we rely on.
-type QueryResult = { data: unknown; error: { message: string } | null };
+type QueryResult = {
+  data: unknown;
+  error: { message: string; code?: string } | null;
+};
 
 export class SupabaseRepository implements Repository {
   readonly backend = "supabase" as const;
@@ -60,11 +69,30 @@ export class SupabaseRepository implements Repository {
     names.forEach((name, i) => {
       const { data, error } = results[i];
       if (error) {
+        if (name === "companyProfiles" && isMissingRelationError(error)) {
+          const fallback = companyProfileFromUser(userData.user);
+          ds.companyProfiles = fallback ? [fallback] : [];
+          return;
+        }
         console.error(`Failed loading ${name}:`, error.message);
         return;
       }
       (ds[name] as unknown) = (data as unknown[]) ?? [];
     });
+
+    if (ds.companyProfiles.length === 0) {
+      const fallback = companyProfileFromUser(userData.user);
+      if (fallback) {
+        ds.companyProfiles = [fallback];
+        void this.table("companyProfiles")
+          .insert(fallback)
+          .then(({ error }: QueryResult) => {
+            if (error && !isMissingRelationError(error)) {
+              console.error("Failed migrating company profile:", error.message);
+            }
+          });
+      }
+    }
 
     return ds;
   }
@@ -74,8 +102,12 @@ export class SupabaseRepository implements Repository {
       .insert(row)
       .select()
       .single()) as QueryResult;
-    if (error) throw new Error(error.message);
-    return ((data as CollectionMap[K]) ?? row) as CollectionMap[K];
+    if (!error) return ((data as CollectionMap[K]) ?? row) as CollectionMap[K];
+    if (name === "companyProfiles" && isMissingRelationError(error)) {
+      await saveCompanyProfileMeta(row as CompanyProfile);
+      return row;
+    }
+    throw new Error(error.message);
   }
 
   async update<K extends CollectionName>(
@@ -86,11 +118,59 @@ export class SupabaseRepository implements Repository {
     const { error } = (await this.table(name)
       .update(patch)
       .eq("id", id)) as QueryResult;
-    if (error) throw new Error(error.message);
+    if (!error) return;
+    if (name === "companyProfiles" && isMissingRelationError(error)) {
+      const { data: userData } = await this.client().auth.getUser();
+      const current = companyProfileFromUser(userData.user);
+      const now = new Date().toISOString();
+      const merged = {
+        entity_type: "limited_company" as const,
+        legal_name: "",
+        trading_name: null,
+        company_number: null,
+        vat_registered: false,
+        vat_number: null,
+        vat_scheme: "none" as const,
+        default_vat_rate: 0,
+        registered_address: null,
+        email: null,
+        phone: null,
+        website: null,
+        bank_name: null,
+        bank_sort_code: null,
+        bank_account_name: null,
+        bank_account_number: null,
+        invoice_prefix: "INV",
+        next_invoice_number: 1,
+        quote_prefix: "QTE",
+        next_quote_number: 1,
+        default_payment_terms_days: 14,
+        default_quote_valid_days: 30,
+        invoice_footer: null,
+        accounting_year_end_month: 3,
+        created_at: now,
+        updated_at: now,
+        ...current,
+        ...patch,
+        id,
+        user_id: current?.user_id ?? userData.user?.id ?? "",
+      } as CompanyProfile;
+      await saveCompanyProfileMeta(merged);
+      return;
+    }
+    throw new Error(error.message);
   }
 
   async remove<K extends CollectionName>(name: K, id: string) {
     const { error } = (await this.table(name).delete().eq("id", id)) as QueryResult;
-    if (error) throw new Error(error.message);
+    if (!error) return;
+    if (name === "companyProfiles" && isMissingRelationError(error)) {
+      const { error: metaError } = await this.client().auth.updateUser({
+        data: { [COMPANY_PROFILE_META_KEY]: null },
+      });
+      if (metaError) throw new Error(metaError.message);
+      return;
+    }
+    throw new Error(error.message);
   }
 }
