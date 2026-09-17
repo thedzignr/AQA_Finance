@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/data/DataProvider";
 import {
@@ -12,6 +12,7 @@ import {
   normaliseLineItems,
 } from "@/lib/commerce";
 import { COMPANY } from "@/lib/company";
+import { downloadSalesDocumentPdf } from "@/lib/salesDocumentPdf";
 import { companyProfile } from "@/lib/selectors";
 import { formatGBP, formatShortDate } from "@/lib/utils";
 import type { Invoice, Quote } from "@/types/domain";
@@ -20,6 +21,7 @@ export function PrintDocumentPage({ kind }: { kind: "invoice" | "quote" }) {
   const { id } = useParams<{ id: string }>();
   const { data, clientById } = useData();
   const company = companyProfile(data);
+  const [downloading, setDownloading] = useState(false);
 
   const doc = useMemo(() => {
     if (!id) return null;
@@ -27,6 +29,32 @@ export function PrintDocumentPage({ kind }: { kind: "invoice" | "quote" }) {
       ? data.invoices.find((i) => i.id === id) ?? null
       : data.quotes.find((q) => q.id === id) ?? null;
   }, [data.invoices, data.quotes, id, kind]);
+
+  useEffect(() => {
+    if (!doc) return;
+    const previous = document.title;
+    document.title = doc.number;
+    return () => {
+      document.title = previous;
+    };
+  }, [doc]);
+
+  async function downloadPdf() {
+    if (!doc) return;
+    setDownloading(true);
+    try {
+      await downloadSalesDocumentPdf({
+        kind,
+        doc,
+        client: clientById(doc.client_id),
+        company,
+      });
+    } catch (error) {
+      console.error("Could not download PDF", error);
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   if (!doc) {
     return (
@@ -55,9 +83,14 @@ export function PrintDocumentPage({ kind }: { kind: "invoice" | "quote" }) {
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </Button>
-        <Button onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> Print / Save PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={downloading} onClick={() => void downloadPdf()}>
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print / Save PDF
+          </Button>
+        </div>
       </div>
 
       <article className="mx-auto max-w-[800px] bg-white p-8 text-neutral-900 print:max-w-none print:p-0">

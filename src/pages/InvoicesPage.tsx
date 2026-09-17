@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileSpreadsheet, MoreHorizontal, Plus, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, Plus, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,7 +42,8 @@ import { InvoiceStatusBadge } from "@/components/shared/StatusBadges";
 import { SalesDocumentDialog } from "@/components/commerce/SalesDocumentDialog";
 import { useData } from "@/data/DataProvider";
 import { useAuth } from "@/data/auth";
-import { clientLabel, salesSummary } from "@/lib/selectors";
+import { downloadSalesDocumentPdf } from "@/lib/salesDocumentPdf";
+import { clientLabel, companyProfile, salesSummary } from "@/lib/selectors";
 import { invoiceBalance, invoiceDisplayStatus } from "@/lib/commerce";
 import { formatGBP, formatShortDate, newId, todayISO } from "@/lib/utils";
 import type { Invoice, Transaction } from "@/types/domain";
@@ -53,7 +54,25 @@ export function InvoicesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
   const [paying, setPaying] = useState<Invoice | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const sales = useMemo(() => salesSummary(data), [data]);
+  const company = companyProfile(data);
+
+  async function downloadInvoice(invoice: Invoice) {
+    setDownloadingId(invoice.id);
+    try {
+      await downloadSalesDocumentPdf({
+        kind: "invoice",
+        doc: invoice,
+        client: clientById(invoice.client_id),
+        company,
+      });
+    } catch (error) {
+      console.error("Could not download invoice PDF", error);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   const invoices = useMemo(
     () => [...data.invoices].sort((a, b) => b.issue_date.localeCompare(a.issue_date)),
@@ -225,6 +244,12 @@ export function InvoicesPage() {
                               <Link to={`/print/invoice/${inv.id}`}>
                                 <Printer className="h-4 w-4" /> Print / PDF
                               </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={downloadingId === inv.id}
+                              onClick={() => void downloadInvoice(inv)}
+                            >
+                              <Download className="h-4 w-4" /> Download invoice
                             </DropdownMenuItem>
                             {inv.status === "draft" && (
                               <DropdownMenuItem onClick={() => void setStatus(inv, "sent")}>
